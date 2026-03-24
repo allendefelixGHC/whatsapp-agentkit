@@ -1,0 +1,55 @@
+# Configuración del negocio — Generado por AgentKit
+negocio:
+  nombre: "Inmobiliaria Bertero"
+  descripcion: >
+    Bertero Negocios Inmobiliarios es una empresa conformada por un staff de profesionales
+    con capacitación permanente tanto en el trato humano como en lo tecnológico.
+    Se dedica a la venta y alquiler de propiedades en Córdoba, Argentina.
+    Ofrece servicios de tasación, asesoramiento inmobiliario, gestión integral de alquileres
+    (atención al cliente, seguimiento, cobros, documentación), y gestión completa de ventas
+    (averiguaciones, documentación y redacción de contratos).
+  direccion: "Av. Maipú 51 - Piso 10 - Oficina 1, Córdoba Capital, Argentina"
+  telefono: "3515932736"
+  whatsapp: "+5493515932736"
+  email: "ventasbertero@gmail.com"
+  web: "https://www.inmobiliariabertero.com.ar"
+  instagram: "https://www.instagram.com/bertero.inmobiliaria/"
+  horario: "Lunes a Viernes 9am a 6pm, Sábados 10am a 2pm"
+  asociaciones:
+    - "CRS"
+    - "CACIC"
+    - "CPCPI"
+
+agente:
+  nombre: "Soporte Bertero"
+  tono: "Empático y cálido"
+  casos_de_uso:
+    - "Responder preguntas frecuentes"
+    - "Agendar citas y visitas a propiedades"
+    - "Calificar y atender leads de venta y alquiler"
+    - "Informar sobre propiedades disponibles"
+
+propiedades:
+  total: 76
+  tipos:
+    - "Casas (26)"
+    - "Departamentos (16)"
+    - "Terrenos (12)"
+    - "Galpones (10)"
+    - "Locales (7)"
+    - "Oficinas (2)"
+    - "Edificio Comercial (1)"
+    - "PH (1)"
+    - "Cochera (1)"
+  rango_precios: "USD 35.000 a USD 1.070.000"
+  zonas:
+    - "Centro"
+    - "Nueva Córdoba"
+    - "Alberdi"
+    - "Güemes"
+    - "Unquillo"
+    - "Villa Carlos Paz"
+
+metadata:
+  creado: "2026-03-24"
+  version: "1.0"
