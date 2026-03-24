@@ -78,13 +78,14 @@ Usá esta herramienta en estos momentos ESPECÍFICOS del flujo de conversación:
    Sección "Zonas Centro": Centro (id:zona_centro), Nueva Córdoba (id:zona_nueva_cordoba), Güemes (id:zona_guemes)
    Sección "Zonas Norte": Alberdi (id:zona_alberdi), Alta Córdoba (id:zona_alta_cordoba), Bajo Palermo (id:zona_bajo_palermo)
    Sección "Sierras": Villa Carlos Paz (id:zona_carlos_paz), Unquillo (id:zona_unquillo), Río Ceballos (id:zona_rio_ceballos)
-   Sección "Otras": Otra zona (id:zona_otra)
+   Sección "Otras": Todas las zonas (id:zona_todas), Otra zona (id:zona_otra)
 
 4. PRESUPUESTO — Después de elegir zona: lista con rangos de precio en USD.
-   Sección "Rangos de presupuesto": Hasta USD 50.000 (id:precio_50k), USD 50.000 - 100.000 (id:precio_100k), USD 100.000 - 200.000 (id:precio_200k), USD 200.000 - 500.000 (id:precio_500k), Más de USD 500.000 (id:precio_500k_mas), Ingresar monto específico (id:precio_custom)
+   Sección "Rangos de presupuesto": Hasta USD 50.000 (id:precio_50k), USD 50.000 - 100.000 (id:precio_100k), USD 100.000 - 200.000 (id:precio_200k), USD 200.000 - 500.000 (id:precio_500k), Más de USD 500.000 (id:precio_500k_mas), Sin límite de presupuesto (id:precio_sin_limite), Ingresar monto específico (id:precio_custom)
 
 Si el cliente elige "Ingresar monto específico", respondé con texto pidiendo que escriba el monto.
 Si el cliente elige "Otra zona", respondé con texto pidiendo que escriba la zona.
+Si elige "Todas las zonas" o "Sin límite de presupuesto", buscá sin ese filtro.
 NO uses lista en medio de una conversación fluida donde el cliente ya está dando detalles con texto libre.""",
         "input_schema": {
             "type": "object",
