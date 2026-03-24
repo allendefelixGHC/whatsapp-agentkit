@@ -277,16 +277,26 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
 
             logger.info(f"Respuesta final ({response2.usage.input_tokens} in / {response2.usage.output_tokens} out) — stop: {response2.stop_reason}")
 
-            # Verificar si la segunda respuesta también usa herramientas interactivas
-            if response2.stop_reason == "tool_use":
-                for block in response2.content:
-                    if block.type == "tool_use" and block.name in ("enviar_botones", "enviar_lista"):
-                        return _construir_respuesta_interactiva(block.name, block.input)
+            # Verificar si la segunda respuesta tiene texto + herramientas interactivas
+            # Claude puede responder con texto (propiedades) + botones en el mismo response
+            texto_acumulado = ""
+            respuesta_interactiva2 = None
 
-            # Extraer texto
             for block in response2.content:
-                if hasattr(block, "text"):
-                    return Respuesta(tipo="texto", texto=block.text)
+                if hasattr(block, "text") and block.text:
+                    texto_acumulado += block.text
+                elif block.type == "tool_use" and block.name in ("enviar_botones", "enviar_lista"):
+                    respuesta_interactiva2 = _construir_respuesta_interactiva(block.name, block.input)
+
+            # Si hay interactivo, combinar texto + botones/lista
+            if respuesta_interactiva2:
+                if texto_acumulado:
+                    respuesta_interactiva2.texto = texto_acumulado + "\n\n" + respuesta_interactiva2.texto
+                return respuesta_interactiva2
+
+            # Solo texto
+            if texto_acumulado:
+                return Respuesta(tipo="texto", texto=texto_acumulado)
 
             return Respuesta(tipo="texto", texto=obtener_mensaje_error())
 
