@@ -67,9 +67,25 @@ NUNCA uses botones en medio de una conversación fluida donde el cliente está d
     {
         "name": "enviar_lista",
         "description": """Envía un mensaje de WhatsApp con una lista desplegable de opciones.
-Usá esta herramienta SOLO en el primer contacto cuando el cliente saluda ("Hola", "Buenos días", etc.)
-para preguntar qué tipo de consulta tiene. NO la uses en otros momentos.
-La lista permite más opciones que los botones y es ideal para menús iniciales.""",
+Usá esta herramienta en estos momentos ESPECÍFICOS del flujo de conversación:
+
+1. PRIMER CONTACTO — Cuando el cliente saluda ("Hola", etc.): lista con opciones de consulta (comprar/alquilar/vender/etc.)
+
+2. TIPO DE PROPIEDAD — Después de que el cliente elige comprar o alquilar: lista con tipos de propiedad.
+   Sección "Tipo de propiedad": Casa (id:tipo_casa), Departamento (id:tipo_depto), Terreno/Lote (id:tipo_terreno), Local comercial (id:tipo_local), Galpón (id:tipo_galpon), Oficina (id:tipo_oficina), No tengo preferencia (id:tipo_cualquiera)
+
+3. ZONA — Después de elegir tipo de propiedad: lista con zonas principales.
+   Sección "Zonas Centro": Centro (id:zona_centro), Nueva Córdoba (id:zona_nueva_cordoba), Güemes (id:zona_guemes)
+   Sección "Zonas Norte": Alberdi (id:zona_alberdi), Alta Córdoba (id:zona_alta_cordoba), Bajo Palermo (id:zona_bajo_palermo)
+   Sección "Sierras": Villa Carlos Paz (id:zona_carlos_paz), Unquillo (id:zona_unquillo), Río Ceballos (id:zona_rio_ceballos)
+   Sección "Otras": Otra zona (id:zona_otra)
+
+4. PRESUPUESTO — Después de elegir zona: lista con rangos de precio en USD.
+   Sección "Rangos de presupuesto": Hasta USD 50.000 (id:precio_50k), USD 50.000 - 100.000 (id:precio_100k), USD 100.000 - 200.000 (id:precio_200k), USD 200.000 - 500.000 (id:precio_500k), Más de USD 500.000 (id:precio_500k_mas), Ingresar monto específico (id:precio_custom)
+
+Si el cliente elige "Ingresar monto específico", respondé con texto pidiendo que escriba el monto.
+Si el cliente elige "Otra zona", respondé con texto pidiendo que escriba la zona.
+NO uses lista en medio de una conversación fluida donde el cliente ya está dando detalles con texto libre.""",
         "input_schema": {
             "type": "object",
             "properties": {
