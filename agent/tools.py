@@ -93,10 +93,12 @@ async def buscar_propiedades(
     precio_max: str = "",
     ambientes: str = "",
     limite: int = 5,
+    pagina: int = 1,
 ) -> str:
     """
     Busca propiedades en tiempo real desde la web de Inmobiliaria Bertero.
     La web no filtra server-side, así que descargamos todo y filtramos acá.
+    Usa pagina=2, pagina=3, etc. para ver más resultados.
     """
     try:
         # Descargar todas las páginas de propiedades
@@ -166,12 +168,23 @@ async def buscar_propiedades(
                 f"- O contactanos para que un asesor te ayude a encontrar lo que buscás"
             )
 
-        # Limitar resultados
-        todas = todas[:limite]
+        total_encontradas = len(todas)
+
+        # Paginación
+        inicio = (pagina - 1) * limite
+        fin = inicio + limite
+        pagina_actual = todas[inicio:fin]
+
+        if not pagina_actual and pagina > 1:
+            return f"No hay más propiedades para mostrar. Ya te mostré las {total_encontradas} disponibles."
 
         # Formatear resultado
-        resultado = f"Encontré {len(todas)} propiedad(es):\n\n"
-        for i, prop in enumerate(todas, 1):
+        resultado = f"Encontré {total_encontradas} propiedad(es) en total"
+        if total_encontradas > limite:
+            resultado += f" (mostrando {inicio + 1}-{min(fin, total_encontradas)})"
+        resultado += ":\n\n"
+
+        for i, prop in enumerate(pagina_actual, inicio + 1):
             resultado += f"{i}. {prop['tipo']} en {prop['operacion']} — {prop['zona']}\n"
             if prop['precio']:
                 resultado += f"   Precio: {prop['precio']}\n"
@@ -180,6 +193,9 @@ async def buscar_propiedades(
             if prop['superficie']:
                 resultado += f"   Superficie: {prop['superficie']}\n"
             resultado += f"   Ver detalle: {BASE_URL}{prop['link']}\n\n"
+
+        if fin < total_encontradas:
+            resultado += f"Hay {total_encontradas - fin} propiedades más. Pedime 'ver más' para la siguiente página.\n"
 
         return resultado
 
@@ -445,7 +461,7 @@ async def obtener_link_agendar() -> str:
 TOOLS_DEFINITION = [
     {
         "name": "buscar_propiedades",
-        "description": "Busca propiedades disponibles en tiempo real en la web de Inmobiliaria Bertero. Usa esta herramienta SIEMPRE que un cliente pregunte por propiedades, precios, o quiera ver opciones disponibles.",
+        "description": "Busca propiedades disponibles en tiempo real en la web de Inmobiliaria Bertero. Usa esta herramienta SIEMPRE que un cliente pregunte por propiedades, precios, o quiera ver opciones disponibles. Cuando el cliente pide 'ver más opciones', llamá esta herramienta de nuevo con los MISMOS filtros pero pagina=2 (o 3, 4, etc.).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -472,6 +488,10 @@ TOOLS_DEFINITION = [
                 "ambientes": {
                     "type": "string",
                     "description": "Cantidad de ambientes (1-6)",
+                },
+                "pagina": {
+                    "type": "integer",
+                    "description": "Página de resultados (default 1). Usá 2, 3, etc. para ver más opciones con los mismos filtros.",
                 },
             },
             "required": [],
