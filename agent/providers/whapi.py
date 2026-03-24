@@ -52,8 +52,25 @@ class ProveedorWhapi(ProveedorWhatsApp):
             lista_id = ""
             msg_type = msg.get("type", "")
 
-            # Detectar respuestas interactivas (botón o lista)
-            # Whapi puede enviar como type "interactive" o tener campo "interactive"
+            # Detectar respuestas interactivas
+            # Whapi envía respuestas de botón/lista con type="reply" y campo "reply"
+            if msg_type == "reply" or msg.get("reply"):
+                reply_data = msg.get("reply", {})
+                if isinstance(reply_data, dict):
+                    # El campo reply contiene id y title de la opción seleccionada
+                    reply_id = reply_data.get("id", "")
+                    reply_title = reply_data.get("title", "")
+                    reply_desc = reply_data.get("description", "")
+                    texto = reply_title or reply_desc or texto
+                    # Determinar si fue botón o lista por el contexto
+                    if reply_id:
+                        if reply_id.startswith("btn_"):
+                            boton_id = reply_id
+                        else:
+                            lista_id = reply_id
+                    logger.info(f"Reply interactivo: id={reply_id} title={reply_title}")
+
+            # También revisar campo "interactive" (formato alternativo)
             interactive = msg.get("interactive", {})
             if interactive:
                 tipo_interactivo = interactive.get("type", "")
@@ -65,12 +82,6 @@ class ProveedorWhapi(ProveedorWhatsApp):
                     reply = interactive.get("list_reply", {})
                     lista_id = reply.get("id", "")
                     texto = reply.get("title", "") or texto
-
-            # También revisar action para respuestas de botones legacy
-            action = msg.get("action", {})
-            if action and not texto:
-                # Algunos formatos envían la respuesta en action.body
-                texto = action.get("body", "") or action.get("title", "")
 
             # Si aún no hay texto, intentar con body directo del mensaje
             if not texto:
