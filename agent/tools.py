@@ -96,78 +96,92 @@ async def buscar_propiedades(
 ) -> str:
     """
     Busca propiedades en tiempo real desde la web de Inmobiliaria Bertero.
-
-    Args:
-        tipo: Tipo de propiedad (departamento, casa, terreno, local, galpon, oficina)
-        zona: Zona o barrio (ej: Nueva Cordoba, Centro, Alberdi)
-        operacion: Tipo de operación (venta, alquiler)
-        precio_min: Precio mínimo en USD
-        precio_max: Precio máximo en USD
-        ambientes: Cantidad de ambientes (1-6)
-        limite: Máximo de resultados a retornar
-
-    Returns:
-        Texto formateado con las propiedades encontradas
+    La web no filtra server-side, así que descargamos todo y filtramos acá.
     """
-    # Construir parámetros de búsqueda
-    params = {
-        "q": zona,
-        "currency": "ANY",
-        "o": "2,2",
-        "p": "1",
-    }
-
-    # Tipo de propiedad
-    tipo_lower = tipo.lower().strip()
-    if tipo_lower in TIPOS_PROPIEDAD:
-        params["ptypes"] = TIPOS_PROPIEDAD[tipo_lower]
-
-    # Operación
-    op_lower = operacion.lower().strip()
-    if op_lower in OPERACIONES:
-        params["operation"] = OPERACIONES[op_lower]
-
-    # Precios
-    if precio_min:
-        params["min-price"] = precio_min
-    if precio_max:
-        params["max-price"] = precio_max
-
-    # Ambientes
-    if ambientes:
-        params["min-rooms"] = ambientes
-        params["max-rooms"] = ambientes
-
     try:
+        # Descargar todas las páginas de propiedades
+        todas = []
         async with httpx.AsyncClient(timeout=15.0) as client:
-            r = await client.get(f"{BASE_URL}/Propiedades", params=params)
+            for page in range(1, 5):  # Hasta 4 páginas (80 propiedades)
+                r = await client.get(f"{BASE_URL}/Propiedades", params={"p": str(page)})
+                if r.status_code != 200:
+                    break
+                nuevas = _parsear_listado(r.text)
+                if not nuevas:
+                    break
+                todas.extend(nuevas)
 
-            if r.status_code != 200:
-                logger.error(f"Error buscando propiedades: {r.status_code}")
-                return "No pude consultar las propiedades en este momento. Revisá nuestra web: www.inmobiliariabertero.com.ar/Propiedades"
+        logger.info(f"Total propiedades parseadas: {len(todas)}")
 
-            html = r.text
+        # Filtrar por tipo
+        if tipo:
+            tipo_lower = tipo.lower().strip()
+            # Mapear sinónimos
+            tipo_map = {"depto": "departamento", "dpto": "departamento", "lote": "terreno", "galpón": "galpon"}
+            tipo_buscar = tipo_map.get(tipo_lower, tipo_lower)
+            todas = [p for p in todas if tipo_buscar in p["tipo"].lower()]
 
-            # Extraer propiedades del HTML
-            propiedades = _parsear_listado(html, limite)
+        # Filtrar por operación
+        if operacion:
+            op_lower = operacion.lower().strip()
+            op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
+            op_buscar = op_map.get(op_lower, op_lower)
+            todas = [p for p in todas if op_buscar in p["operacion"].lower()]
 
-            if not propiedades:
-                return f"No encontré propiedades con esos filtros. Probá con otros criterios o revisá todas en: www.inmobiliariabertero.com.ar/Propiedades"
+        # Filtrar por zona
+        if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
+            zona_lower = zona.lower().strip()
+            todas = [p for p in todas if zona_lower in p["zona"].lower()]
 
-            # Formatear resultado
-            resultado = f"Encontré {len(propiedades)} propiedad(es):\n\n"
-            for i, prop in enumerate(propiedades, 1):
-                resultado += f"{i}. {prop['titulo']}\n"
+        # Filtrar por precio
+        precio_min_num = int(precio_min) if precio_min and precio_min.isdigit() else 0
+        precio_max_num = int(precio_max) if precio_max and precio_max.isdigit() else 0
+        if precio_min_num or precio_max_num:
+            filtradas = []
+            for p in todas:
+                precio_num = p.get("precio_num", 0)
+                if precio_num <= 0:
+                    continue  # Omitir si no tiene precio
+                if precio_min_num and precio_num < precio_min_num:
+                    continue
+                if precio_max_num and precio_num > precio_max_num:
+                    continue
+                filtradas.append(p)
+            todas = filtradas
+
+        if not todas:
+            filtros = []
+            if tipo:
+                filtros.append(f"tipo: {tipo}")
+            if zona and zona.lower() not in ("todas", "todas las zonas"):
+                filtros.append(f"zona: {zona}")
+            if precio_max_num:
+                filtros.append(f"hasta USD {precio_max_num:,}")
+            filtros_str = ", ".join(filtros) if filtros else "los filtros seleccionados"
+            return (
+                f"No encontré propiedades con {filtros_str}.\n\n"
+                f"Sugerencias:\n"
+                f"- Probá ampliando la zona o el presupuesto\n"
+                f"- Revisá todas las opciones en: www.inmobiliariabertero.com.ar/Propiedades\n"
+                f"- O contactanos para que un asesor te ayude a encontrar lo que buscás"
+            )
+
+        # Limitar resultados
+        todas = todas[:limite]
+
+        # Formatear resultado
+        resultado = f"Encontré {len(todas)} propiedad(es):\n\n"
+        for i, prop in enumerate(todas, 1):
+            resultado += f"{i}. {prop['tipo']} en {prop['operacion']} — {prop['zona']}\n"
+            if prop['precio']:
                 resultado += f"   Precio: {prop['precio']}\n"
-                if prop['direccion']:
-                    resultado += f"   Dirección: {prop['direccion']}\n"
-                if prop['superficie']:
-                    resultado += f"   Superficie: {prop['superficie']}\n"
-                if prop['ambientes']:
-                    resultado += f"   Ambientes: {prop['ambientes']}\n"
-                resultado += f"   Ver detalle: {BASE_URL}{prop['link']}\n\n"
+            if prop['direccion']:
+                resultado += f"   Dirección: {prop['direccion']}\n"
+            if prop['superficie']:
+                resultado += f"   Superficie: {prop['superficie']}\n"
+            resultado += f"   Ver detalle: {BASE_URL}{prop['link']}\n\n"
 
-            return resultado
+        return resultado
 
     except httpx.TimeoutException:
         logger.error("Timeout buscando propiedades")
@@ -222,70 +236,80 @@ async def obtener_detalle_propiedad(propiedad_id: str) -> str:
         return "Hubo un error al consultar los detalles. Revisá la web: www.inmobiliariabertero.com.ar/Propiedades"
 
 
-def _parsear_listado(html: str, limite: int) -> list[dict]:
-    """Parsea el HTML del listado de propiedades y extrae los datos principales."""
+def _parsear_listado(html: str) -> list[dict]:
+    """
+    Parsea el HTML del listado de propiedades.
+    Extrae tipo, operación, zona y dirección del slug del link.
+    Extrae precio y superficie del HTML entre propiedades.
+    """
     propiedades = []
 
-    # Buscar bloques de propiedades — cada una tiene un link /p/ID
-    patron_prop = re.compile(
-        r'<a[^>]*href="(/p/\d+[^"]*)"[^>]*>.*?</a>',
-        re.DOTALL
-    )
+    # Encontrar todos los links de propiedades con regex posicional
+    links = list(re.finditer(r'href="(/p/(\d+)-([^"]+))"', html))
 
-    # Patrón más robusto: buscar divs con datos de propiedad
-    # Los datos están en el HTML con estructura repetitiva
-    patron_link = re.findall(r'href="(/p/(\d+)[^"]*)"', html)
-    links_unicos = {}
-    for link, pid in patron_link:
-        if pid not in links_unicos:
-            links_unicos[pid] = link
+    seen_ids = set()
+    for i, match in enumerate(links):
+        pid = match.group(2)
+        if pid in seen_ids:
+            continue
+        seen_ids.add(pid)
 
-    # Para cada propiedad, extraer datos del contexto HTML
-    for pid, link in links_unicos.items():
-        if len(propiedades) >= limite:
-            break
+        link = match.group(1)
+        slug = match.group(3)
 
-        prop = {
+        # Extraer tipo, operación, zona del slug: Tipo-en-Operacion-en-Zona-Direccion
+        partes = slug.split("-en-")
+        tipo = partes[0].replace("-", " ") if len(partes) > 0 else ""
+        operacion = partes[1].replace("-", " ") if len(partes) > 1 else ""
+        resto = partes[2] if len(partes) > 2 else ""
+
+        # La zona es la primera parte antes de la dirección
+        # Ej: "Nueva-Cordoba-Ituzaingo--al-400" → zona="Nueva Cordoba"
+        # Ej: "Centro-Humberto-Primo-al-800" → zona="Centro"
+        zona = ""
+        direccion = ""
+        if resto:
+            # Buscar patrón de dirección (calle + número)
+            dir_match = re.search(r'(.+?)[-,]?\s*(?:al\s*\d|esquina|\d{2,})', resto, re.IGNORECASE)
+            if dir_match:
+                zona_parte = dir_match.group(1).rstrip("-").replace("-", " ").strip()
+                zona = zona_parte
+                direccion = resto.replace("-", " ").replace("  ", " ").strip()
+            else:
+                zona = resto.replace("-", " ").strip()
+
+        # Buscar precio en el bloque HTML ANTES de este link
+        precio = ""
+        precio_num = 0
+        start = links[i - 1].end() if i > 0 else 0
+        bloque = html[start:match.start()]
+        precios = re.findall(r'(USD|U\$S)\s*([\d.,]+)', bloque)
+        if precios:
+            moneda, valor = precios[-1]  # Último precio del bloque
+            precio = f"USD {valor}"
+            # Parsear número para filtrado
+            try:
+                precio_num = int(valor.replace(".", "").replace(",", ""))
+            except ValueError:
+                pass
+
+        # Buscar superficie en el bloque
+        superficie = ""
+        sup_matches = re.findall(r'(\d+(?:[.,]\d+)?)\s*m[²2]', bloque)
+        if sup_matches:
+            superficie = f"{sup_matches[-1]} m²"
+
+        propiedades.append({
             "id": pid,
             "link": link,
-            "titulo": "",
-            "precio": "",
-            "direccion": "",
-            "superficie": "",
-            "ambientes": "",
-        }
-
-        # Extraer título del slug del link
-        slug = link.replace(f"/p/{pid}-", "").replace("-", " ")
-        prop["titulo"] = slug.title() if slug else f"Propiedad {pid}"
-
-        # Buscar precio cerca de esta propiedad en el HTML
-        # Los precios suelen estar como USD X,XXX o U$S X.XXX
-        idx = html.find(f"/p/{pid}")
-        if idx > 0:
-            contexto = html[max(0, idx - 2000):idx + 2000]
-
-            # Precio
-            precio_match = re.search(r'(USD|U\$S)\s*[\d.,]+', contexto)
-            if precio_match:
-                prop["precio"] = precio_match.group(0)
-
-            # Superficie
-            sup_match = re.search(r'(\d+(?:\.\d+)?)\s*m²', contexto)
-            if sup_match:
-                prop["superficie"] = f"{sup_match.group(1)} m²"
-
-            # Ambientes
-            amb_match = re.search(r'(\d+)\s*amb', contexto, re.IGNORECASE)
-            if amb_match:
-                prop["ambientes"] = amb_match.group(1)
-
-            # Dirección — buscar en el contexto
-            dir_match = re.search(r'class="[^"]*address[^"]*"[^>]*>([^<]+)', contexto)
-            if dir_match:
-                prop["direccion"] = dir_match.group(1).strip()
-
-        propiedades.append(prop)
+            "tipo": tipo,
+            "operacion": operacion,
+            "zona": zona,
+            "direccion": direccion,
+            "precio": precio,
+            "precio_num": precio_num,
+            "superficie": superficie,
+        })
 
     return propiedades
 
