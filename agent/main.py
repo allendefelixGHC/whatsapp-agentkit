@@ -4,6 +4,7 @@
 """
 Servidor principal del agente de WhatsApp.
 Funciona con cualquier proveedor (Whapi, Meta, Twilio) gracias a la capa de providers.
+Soporta mensajes de texto, botones y listas interactivas.
 """
 
 import os
@@ -67,32 +68,35 @@ async def webhook_handler(request: Request):
     """
     Recibe mensajes de WhatsApp via el proveedor configurado.
     Procesa el mensaje, genera respuesta con Claude y la envía de vuelta.
+    Soporta respuestas de texto, botones y listas.
     """
     try:
-        # Parsear webhook — el proveedor normaliza el formato
         mensajes = await proveedor.parsear_webhook(request)
 
         for msg in mensajes:
-            # Ignorar mensajes propios o vacíos
             if msg.es_propio or not msg.texto:
                 continue
 
-            logger.info(f"Mensaje de {msg.telefono}: {msg.texto}")
+            # Log con contexto de interacción
+            if msg.boton_id:
+                logger.info(f"Botón de {msg.telefono}: {msg.texto} (id: {msg.boton_id})")
+            elif msg.lista_id:
+                logger.info(f"Lista de {msg.telefono}: {msg.texto} (id: {msg.lista_id})")
+            else:
+                logger.info(f"Mensaje de {msg.telefono}: {msg.texto}")
 
-            # Obtener historial ANTES de guardar el mensaje actual
+            # Obtener historial y generar respuesta
             historial = await obtener_historial(msg.telefono)
-
-            # Generar respuesta con Claude
             respuesta = await generar_respuesta(msg.texto, historial)
 
-            # Guardar mensaje del usuario Y respuesta del agente en memoria
+            # Guardar en memoria (siempre como texto para el historial)
             await guardar_mensaje(msg.telefono, "user", msg.texto)
-            await guardar_mensaje(msg.telefono, "assistant", respuesta)
+            await guardar_mensaje(msg.telefono, "assistant", respuesta.texto)
 
-            # Enviar respuesta por WhatsApp via el proveedor
-            await proveedor.enviar_mensaje(msg.telefono, respuesta)
+            # Enviar respuesta según tipo (texto, botones o lista)
+            await proveedor.enviar_respuesta(msg.telefono, respuesta)
 
-            logger.info(f"Respuesta a {msg.telefono}: {respuesta}")
+            logger.info(f"Respuesta [{respuesta.tipo}] a {msg.telefono}: {respuesta.texto[:100]}...")
 
         return {"status": "ok"}
 

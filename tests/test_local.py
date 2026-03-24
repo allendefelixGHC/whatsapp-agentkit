@@ -3,7 +3,7 @@
 
 """
 Prueba tu agente sin necesitar WhatsApp.
-Simula una conversación en la terminal.
+Simula una conversación en la terminal con soporte para mensajes interactivos.
 """
 
 import asyncio
@@ -17,6 +17,26 @@ from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial, limpiar_historial
 
 TELEFONO_TEST = "test-local-001"
+
+
+def mostrar_respuesta(respuesta):
+    """Muestra la respuesta formateada según su tipo."""
+    print(f"\nSoporte Bertero: {respuesta.texto}")
+
+    if respuesta.tipo == "botones" and respuesta.botones:
+        print("\n  [Botones]")
+        for b in respuesta.botones:
+            print(f"  [ {b.titulo} ]")
+
+    elif respuesta.tipo == "lista" and respuesta.secciones:
+        print(f"\n  [{respuesta.texto_boton_lista or 'Ver opciones'}]")
+        for sec in respuesta.secciones:
+            print(f"  --- {sec.titulo} ---")
+            for fila in sec.filas:
+                desc = f" — {fila.descripcion}" if fila.descripcion else ""
+                print(f"    > {fila.titulo}{desc}")
+
+    print()
 
 
 async def main():
@@ -57,18 +77,13 @@ async def main():
             print("[Historial borrado]\n")
             continue
 
-        # Obtener historial ANTES de guardar
         historial = await obtener_historial(TELEFONO_TEST)
-
-        # Generar respuesta
-        print("\nSoporte Bertero: ", end="", flush=True)
         respuesta = await generar_respuesta(mensaje, historial)
-        print(respuesta)
-        print()
 
-        # Guardar mensaje del usuario y respuesta del agente
+        mostrar_respuesta(respuesta)
+
         await guardar_mensaje(TELEFONO_TEST, "user", mensaje)
-        await guardar_mensaje(TELEFONO_TEST, "assistant", respuesta)
+        await guardar_mensaje(TELEFONO_TEST, "assistant", respuesta.texto)
 
 
 if __name__ == "__main__":
