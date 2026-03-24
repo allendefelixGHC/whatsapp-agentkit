@@ -356,34 +356,65 @@ def _parsear_detalle(html: str, link: str) -> str:
     return resultado
 
 
-def registrar_lead(telefono: str, nombre: str, interes: str, presupuesto: str = "", zona: str = "") -> dict:
-    """Registra un nuevo lead interesado en comprar/alquilar."""
-    lead = {
-        "telefono": telefono,
-        "nombre": nombre,
-        "interes": interes,
-        "presupuesto": presupuesto,
-        "zona": zona,
-        "fecha": datetime.now().isoformat(),
-        "estado": "nuevo",
-    }
-    logger.info(f"Nuevo lead registrado: {lead}")
-    return lead
+async def registrar_lead_ghl(
+    telefono: str,
+    nombre: str,
+    operacion: str = "",
+    tipo_propiedad: str = "",
+    zona: str = "",
+    propiedad_id: str = "",
+    propiedad_link: str = "",
+    propiedad_direccion: str = "",
+    resumen: str = "",
+) -> str:
+    """
+    Registra un lead en GHL: crea contacto + oportunidad en el pipeline.
+    Retorna confirmación con datos del lead y vendedor asignado.
+    """
+    from agent.ghl import crear_o_actualizar_contacto, crear_oportunidad, obtener_link_booking
+
+    # 1. Crear/actualizar contacto
+    contacto = await crear_o_actualizar_contacto(
+        telefono=telefono,
+        nombre=nombre,
+        operacion=operacion,
+        tipo_propiedad=tipo_propiedad,
+        zona=zona,
+    )
+
+    if contacto.get("error") and not contacto.get("id"):
+        # Si falló pero tenemos vendedor, seguimos con el link de booking
+        vendedor = contacto.get("vendedor", "un asesor")
+        return (
+            f"No pude registrar el lead en el CRM pero el vendedor asignado es {vendedor}.\n"
+            f"Link de booking para agendar visita: {obtener_link_booking()}\n"
+        )
+
+    # 2. Crear oportunidad
+    oportunidad = await crear_oportunidad(
+        contact_id=contacto["id"],
+        nombre_contacto=nombre,
+        operacion=operacion,
+        propiedad_id=propiedad_id,
+        propiedad_link=propiedad_link,
+        propiedad_direccion=propiedad_direccion,
+        resumen=resumen,
+    )
+
+    resultado = f"Lead registrado exitosamente en el CRM.\n"
+    resultado += f"Nombre: {nombre}\n"
+    resultado += f"Vendedor asignado: {contacto.get('vendedor', 'No asignado')}\n"
+    if oportunidad.get("id"):
+        resultado += f"Oportunidad creada: {oportunidad.get('nombre', '')}\n"
+    resultado += f"Link de booking para agendar visita: {obtener_link_booking()}\n"
+
+    return resultado
 
 
-def agendar_visita(telefono: str, nombre: str, propiedad: str, fecha: str, hora: str) -> dict:
-    """Agenda una visita a una propiedad."""
-    cita = {
-        "telefono": telefono,
-        "nombre": nombre,
-        "propiedad": propiedad,
-        "fecha": fecha,
-        "hora": hora,
-        "estado": "pendiente",
-        "creada": datetime.now().isoformat(),
-    }
-    logger.info(f"Visita agendada: {cita}")
-    return cita
+async def obtener_link_agendar() -> str:
+    """Retorna el link de booking para que el cliente agende una visita."""
+    from agent.ghl import obtener_link_booking
+    return f"Link para agendar visita: {obtener_link_booking()}"
 
 
 # Definición de herramientas para Claude tool_use
@@ -434,6 +465,67 @@ TOOLS_DEFINITION = [
                 },
             },
             "required": ["propiedad_id"],
+        },
+    },
+    {
+        "name": "registrar_lead_ghl",
+        "description": """Registra un lead en el CRM (GoHighLevel): crea el contacto y la oportunidad en el pipeline de ventas.
+Usá esta herramienta cuando:
+- El cliente da su nombre y muestra interés concreto en una propiedad
+- El cliente quiere agendar una visita
+- El cliente pide hablar con un asesor
+IMPORTANTE: Necesitás al menos el nombre del cliente para registrarlo. El teléfono viene del webhook.
+Esta herramienta también retorna el link de booking para agendar visitas.""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "telefono": {
+                    "type": "string",
+                    "description": "Teléfono del cliente (viene del chat de WhatsApp)",
+                },
+                "nombre": {
+                    "type": "string",
+                    "description": "Nombre completo del cliente",
+                },
+                "operacion": {
+                    "type": "string",
+                    "description": "Qué busca: Comprar, Alquilar, Vender, Poner en alquiler",
+                },
+                "tipo_propiedad": {
+                    "type": "string",
+                    "description": "Tipo: Casa, Departamento, Terreno, Local, Galpon, Oficina",
+                },
+                "zona": {
+                    "type": "string",
+                    "description": "Zona de interés: Nueva Cordoba, Centro, Alberdi, etc.",
+                },
+                "propiedad_id": {
+                    "type": "string",
+                    "description": "ID de la propiedad de interés (si aplica)",
+                },
+                "propiedad_link": {
+                    "type": "string",
+                    "description": "Link de la propiedad de interés (si aplica)",
+                },
+                "propiedad_direccion": {
+                    "type": "string",
+                    "description": "Dirección de la propiedad de interés (si aplica)",
+                },
+                "resumen": {
+                    "type": "string",
+                    "description": "Resumen breve de la conversación: qué preguntó, qué le interesó",
+                },
+            },
+            "required": ["telefono", "nombre"],
+        },
+    },
+    {
+        "name": "obtener_link_agendar",
+        "description": "Obtiene el link de booking para que el cliente agende una visita a una propiedad. Usá esta herramienta cuando el cliente quiera agendar una visita y ya esté registrado como lead.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
         },
     },
 ]

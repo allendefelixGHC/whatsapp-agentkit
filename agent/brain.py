@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from agent.tools import (
     buscar_propiedades,
     obtener_detalle_propiedad,
+    registrar_lead_ghl,
+    obtener_link_agendar,
     TOOLS_DEFINITION,
 )
 from agent.providers.base import Respuesta, Boton, SeccionLista, FilaLista
@@ -178,6 +180,10 @@ async def _ejecutar_herramienta(nombre: str, parametros: dict) -> str | Respuest
         return await buscar_propiedades(**parametros)
     elif nombre == "obtener_detalle_propiedad":
         return await obtener_detalle_propiedad(**parametros)
+    elif nombre == "registrar_lead_ghl":
+        return await registrar_lead_ghl(**parametros)
+    elif nombre == "obtener_link_agendar":
+        return await obtener_link_agendar()
     elif nombre in ("enviar_botones", "enviar_lista"):
         return _construir_respuesta_interactiva(nombre, parametros)
     else:

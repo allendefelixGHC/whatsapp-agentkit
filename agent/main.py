@@ -86,8 +86,10 @@ async def webhook_handler(request: Request):
                 logger.info(f"Mensaje de {msg.telefono}: {msg.texto}")
 
             # Obtener historial y generar respuesta
+            # Pasamos el teléfono como contexto para que las herramientas de GHL puedan usarlo
             historial = await obtener_historial(msg.telefono)
-            respuesta = await generar_respuesta(msg.texto, historial)
+            contexto = f"[CONTEXTO INTERNO - NO MOSTRAR AL CLIENTE: teléfono del cliente es {msg.telefono}]\n{msg.texto}"
+            respuesta = await generar_respuesta(contexto, historial)
 
             # Guardar en memoria (siempre como texto para el historial)
             await guardar_mensaje(msg.telefono, "user", msg.texto)
