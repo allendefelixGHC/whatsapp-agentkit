@@ -56,13 +56,22 @@ class ProveedorWhapi(ProveedorWhatsApp):
             # Whapi envía respuestas de botón/lista con type="reply" y campo "reply"
             if msg_type == "reply" or msg.get("reply"):
                 reply_data = msg.get("reply", {})
+                logger.info(f"Reply raw data: {reply_data}")
                 if isinstance(reply_data, dict):
-                    # El campo reply contiene id y title de la opción seleccionada
-                    reply_id = reply_data.get("id", "")
-                    reply_title = reply_data.get("title", "")
-                    reply_desc = reply_data.get("description", "")
-                    texto = reply_title or reply_desc or texto
-                    # Determinar si fue botón o lista por el contexto
+                    # Buscar en múltiples niveles — la estructura puede variar
+                    reply_id = (
+                        reply_data.get("id", "")
+                        or reply_data.get("buttons_reply", {}).get("id", "")
+                        or reply_data.get("list_reply", {}).get("id", "")
+                    )
+                    reply_title = (
+                        reply_data.get("title", "")
+                        or reply_data.get("body", "")
+                        or reply_data.get("buttons_reply", {}).get("title", "")
+                        or reply_data.get("list_reply", {}).get("title", "")
+                        or reply_data.get("list_reply", {}).get("description", "")
+                    )
+                    texto = reply_title or texto
                     if reply_id:
                         if reply_id.startswith("btn_"):
                             boton_id = reply_id
