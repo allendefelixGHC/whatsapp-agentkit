@@ -30,24 +30,49 @@ class ProveedorWhapi(ProveedorWhatsApp):
     async def parsear_webhook(self, request: Request) -> list[MensajeEntrante]:
         """Parsea el payload de Whapi.cloud incluyendo respuestas de botones/listas."""
         body = await request.json()
+        logger.debug(f"Webhook payload: {body}")
         mensajes = []
         for msg in body.get("messages", []):
-            texto = msg.get("text", {}).get("body", "")
+            # Extraer texto — puede venir en text.body o en otros campos
+            text_obj = msg.get("text")
+            if isinstance(text_obj, dict):
+                texto = text_obj.get("body", "")
+            elif isinstance(text_obj, str):
+                texto = text_obj
+            else:
+                texto = ""
+
             boton_id = ""
             lista_id = ""
+            msg_type = msg.get("type", "")
 
             # Detectar respuestas interactivas (botón o lista)
+            # Whapi puede enviar como type "interactive" o tener campo "interactive"
             interactive = msg.get("interactive", {})
             if interactive:
                 tipo_interactivo = interactive.get("type", "")
                 if tipo_interactivo == "buttons_reply":
                     reply = interactive.get("buttons_reply", {})
                     boton_id = reply.get("id", "")
-                    texto = reply.get("title", texto)
+                    texto = reply.get("title", "") or texto
                 elif tipo_interactivo == "list_reply":
                     reply = interactive.get("list_reply", {})
                     lista_id = reply.get("id", "")
-                    texto = reply.get("title", texto)
+                    texto = reply.get("title", "") or texto
+
+            # También revisar action para respuestas de botones legacy
+            action = msg.get("action", {})
+            if action and not texto:
+                # Algunos formatos envían la respuesta en action.body
+                texto = action.get("body", "") or action.get("title", "")
+
+            # Si aún no hay texto, intentar con body directo del mensaje
+            if not texto:
+                texto = msg.get("body", "")
+
+            # Log para debug
+            if not texto and not msg.get("from_me", False):
+                logger.warning(f"Mensaje sin texto detectado. Type: {msg_type}, keys: {list(msg.keys())}")
 
             mensajes.append(MensajeEntrante(
                 telefono=msg.get("chat_id", ""),
