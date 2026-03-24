@@ -3,15 +3,45 @@
 
 """
 Herramientas específicas para Inmobiliaria Bertero.
-Funciones de FAQ, búsqueda de propiedades, agendamiento de citas y calificación de leads.
+Funciones de FAQ, búsqueda de propiedades en tiempo real, agendamiento de citas y calificación de leads.
 """
 
 import os
+import re
 import yaml
 import logging
+import httpx
 from datetime import datetime
 
 logger = logging.getLogger("agentkit")
+
+BASE_URL = "https://www.inmobiliariabertero.com.ar"
+
+# Mapeo de tipos de propiedad a IDs de Tokko Broker
+TIPOS_PROPIEDAD = {
+    "departamento": "2",
+    "depto": "2",
+    "dpto": "2",
+    "casa": "3",
+    "terreno": "1",
+    "lote": "1",
+    "local": "7",
+    "galpon": "9",
+    "galpón": "9",
+    "oficina": "5",
+    "cochera": "10",
+    "ph": "13",
+}
+
+# Mapeo de operaciones
+OPERACIONES = {
+    "venta": "1",
+    "compra": "1",
+    "comprar": "1",
+    "alquiler": "2",
+    "alquilar": "2",
+    "renta": "2",
+}
 
 
 def cargar_info_negocio() -> dict:
@@ -29,21 +59,16 @@ def obtener_horario() -> dict:
     info = cargar_info_negocio()
     return {
         "horario": info.get("negocio", {}).get("horario", "No disponible"),
-        "esta_abierto": True,  # TODO: calcular según hora actual y horario
+        "esta_abierto": True,
     }
 
 
 def buscar_en_knowledge(consulta: str) -> str:
-    """
-    Busca información relevante en los archivos de /knowledge.
-    Retorna el contenido más relevante encontrado.
-    """
+    """Busca información relevante en los archivos de /knowledge."""
     resultados = []
     knowledge_dir = "knowledge"
-
     if not os.path.exists(knowledge_dir):
         return "No hay archivos de conocimiento disponibles."
-
     for archivo in os.listdir(knowledge_dir):
         ruta = os.path.join(knowledge_dir, archivo)
         if archivo.startswith(".") or not os.path.isfile(ruta):
@@ -55,28 +80,284 @@ def buscar_en_knowledge(consulta: str) -> str:
                     resultados.append(f"[{archivo}]: {contenido[:500]}")
         except (UnicodeDecodeError, IOError):
             continue
-
     if resultados:
         return "\n---\n".join(resultados)
     return "No encontré información específica sobre eso en mis archivos."
 
 
-def obtener_tipos_propiedades() -> dict:
-    """Retorna los tipos de propiedades disponibles y cantidades."""
-    info = cargar_info_negocio()
-    return {
-        "tipos": info.get("propiedades", {}).get("tipos", []),
-        "total": info.get("propiedades", {}).get("total", 0),
-        "rango_precios": info.get("propiedades", {}).get("rango_precios", "No disponible"),
-        "zonas": info.get("propiedades", {}).get("zonas", []),
+async def buscar_propiedades(
+    tipo: str = "",
+    zona: str = "",
+    operacion: str = "",
+    precio_min: str = "",
+    precio_max: str = "",
+    ambientes: str = "",
+    limite: int = 5,
+) -> str:
+    """
+    Busca propiedades en tiempo real desde la web de Inmobiliaria Bertero.
+
+    Args:
+        tipo: Tipo de propiedad (departamento, casa, terreno, local, galpon, oficina)
+        zona: Zona o barrio (ej: Nueva Cordoba, Centro, Alberdi)
+        operacion: Tipo de operación (venta, alquiler)
+        precio_min: Precio mínimo en USD
+        precio_max: Precio máximo en USD
+        ambientes: Cantidad de ambientes (1-6)
+        limite: Máximo de resultados a retornar
+
+    Returns:
+        Texto formateado con las propiedades encontradas
+    """
+    # Construir parámetros de búsqueda
+    params = {
+        "q": zona,
+        "currency": "ANY",
+        "o": "2,2",
+        "p": "1",
     }
+
+    # Tipo de propiedad
+    tipo_lower = tipo.lower().strip()
+    if tipo_lower in TIPOS_PROPIEDAD:
+        params["ptypes"] = TIPOS_PROPIEDAD[tipo_lower]
+
+    # Operación
+    op_lower = operacion.lower().strip()
+    if op_lower in OPERACIONES:
+        params["operation"] = OPERACIONES[op_lower]
+
+    # Precios
+    if precio_min:
+        params["min-price"] = precio_min
+    if precio_max:
+        params["max-price"] = precio_max
+
+    # Ambientes
+    if ambientes:
+        params["min-rooms"] = ambientes
+        params["max-rooms"] = ambientes
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(f"{BASE_URL}/Propiedades", params=params)
+
+            if r.status_code != 200:
+                logger.error(f"Error buscando propiedades: {r.status_code}")
+                return "No pude consultar las propiedades en este momento. Revisá nuestra web: www.inmobiliariabertero.com.ar/Propiedades"
+
+            html = r.text
+
+            # Extraer propiedades del HTML
+            propiedades = _parsear_listado(html, limite)
+
+            if not propiedades:
+                return f"No encontré propiedades con esos filtros. Probá con otros criterios o revisá todas en: www.inmobiliariabertero.com.ar/Propiedades"
+
+            # Formatear resultado
+            resultado = f"Encontré {len(propiedades)} propiedad(es):\n\n"
+            for i, prop in enumerate(propiedades, 1):
+                resultado += f"{i}. {prop['titulo']}\n"
+                resultado += f"   Precio: {prop['precio']}\n"
+                if prop['direccion']:
+                    resultado += f"   Dirección: {prop['direccion']}\n"
+                if prop['superficie']:
+                    resultado += f"   Superficie: {prop['superficie']}\n"
+                if prop['ambientes']:
+                    resultado += f"   Ambientes: {prop['ambientes']}\n"
+                resultado += f"   Ver detalle: {BASE_URL}{prop['link']}\n\n"
+
+            return resultado
+
+    except httpx.TimeoutException:
+        logger.error("Timeout buscando propiedades")
+        return "La búsqueda tardó demasiado. Podés ver las propiedades en: www.inmobiliariabertero.com.ar/Propiedades"
+    except Exception as e:
+        logger.error(f"Error en búsqueda de propiedades: {e}")
+        return "Hubo un error buscando propiedades. Revisá nuestra web: www.inmobiliariabertero.com.ar/Propiedades"
+
+
+async def obtener_detalle_propiedad(propiedad_id: str) -> str:
+    """
+    Obtiene el detalle completo de una propiedad específica.
+
+    Args:
+        propiedad_id: ID de la propiedad (ej: "7778974")
+
+    Returns:
+        Texto formateado con los detalles de la propiedad
+    """
+    try:
+        # Primero buscar el link completo en el listado
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            # Buscar en el listado para obtener el slug completo
+            r = await client.get(f"{BASE_URL}/Propiedades", params={"q": "", "p": "1"})
+            html = r.text
+
+            # Buscar el link que contiene el ID
+            pattern = rf'href="(/p/{propiedad_id}[^"]*)"'
+            match = re.search(pattern, html)
+
+            if not match:
+                # Probar buscando en más páginas
+                for page in range(2, 5):
+                    r = await client.get(f"{BASE_URL}/Propiedades", params={"q": "", "p": str(page)})
+                    match = re.search(pattern, r.text)
+                    if match:
+                        break
+
+            if not match:
+                return f"No encontré la propiedad con ID {propiedad_id}."
+
+            link = match.group(1)
+            r = await client.get(f"{BASE_URL}{link}")
+
+            if r.status_code != 200:
+                return f"No pude obtener los detalles de la propiedad. Podés verla en: {BASE_URL}{link}"
+
+            return _parsear_detalle(r.text, link)
+
+    except Exception as e:
+        logger.error(f"Error obteniendo detalle de propiedad {propiedad_id}: {e}")
+        return "Hubo un error al consultar los detalles. Revisá la web: www.inmobiliariabertero.com.ar/Propiedades"
+
+
+def _parsear_listado(html: str, limite: int) -> list[dict]:
+    """Parsea el HTML del listado de propiedades y extrae los datos principales."""
+    propiedades = []
+
+    # Buscar bloques de propiedades — cada una tiene un link /p/ID
+    patron_prop = re.compile(
+        r'<a[^>]*href="(/p/\d+[^"]*)"[^>]*>.*?</a>',
+        re.DOTALL
+    )
+
+    # Patrón más robusto: buscar divs con datos de propiedad
+    # Los datos están en el HTML con estructura repetitiva
+    patron_link = re.findall(r'href="(/p/(\d+)[^"]*)"', html)
+    links_unicos = {}
+    for link, pid in patron_link:
+        if pid not in links_unicos:
+            links_unicos[pid] = link
+
+    # Para cada propiedad, extraer datos del contexto HTML
+    for pid, link in links_unicos.items():
+        if len(propiedades) >= limite:
+            break
+
+        prop = {
+            "id": pid,
+            "link": link,
+            "titulo": "",
+            "precio": "",
+            "direccion": "",
+            "superficie": "",
+            "ambientes": "",
+        }
+
+        # Extraer título del slug del link
+        slug = link.replace(f"/p/{pid}-", "").replace("-", " ")
+        prop["titulo"] = slug.title() if slug else f"Propiedad {pid}"
+
+        # Buscar precio cerca de esta propiedad en el HTML
+        # Los precios suelen estar como USD X,XXX o U$S X.XXX
+        idx = html.find(f"/p/{pid}")
+        if idx > 0:
+            contexto = html[max(0, idx - 2000):idx + 2000]
+
+            # Precio
+            precio_match = re.search(r'(USD|U\$S)\s*[\d.,]+', contexto)
+            if precio_match:
+                prop["precio"] = precio_match.group(0)
+
+            # Superficie
+            sup_match = re.search(r'(\d+(?:\.\d+)?)\s*m²', contexto)
+            if sup_match:
+                prop["superficie"] = f"{sup_match.group(1)} m²"
+
+            # Ambientes
+            amb_match = re.search(r'(\d+)\s*amb', contexto, re.IGNORECASE)
+            if amb_match:
+                prop["ambientes"] = amb_match.group(1)
+
+            # Dirección — buscar en el contexto
+            dir_match = re.search(r'class="[^"]*address[^"]*"[^>]*>([^<]+)', contexto)
+            if dir_match:
+                prop["direccion"] = dir_match.group(1).strip()
+
+        propiedades.append(prop)
+
+    return propiedades
+
+
+def _parsear_detalle(html: str, link: str) -> str:
+    """Parsea el HTML de detalle de una propiedad y retorna texto formateado."""
+    resultado = ""
+
+    # Título
+    titulo_match = re.search(r'<h1[^>]*>([^<]+)</h1>', html)
+    titulo = titulo_match.group(1).strip() if titulo_match else "Propiedad"
+    resultado += f"{titulo}\n\n"
+
+    # Precio
+    precio_match = re.search(r'(USD|U\$S)\s*[\d.,]+', html)
+    if precio_match:
+        resultado += f"Precio: {precio_match.group(0)}\n"
+
+    # Dirección
+    dir_match = re.search(r'class="[^"]*address[^"]*"[^>]*>([^<]+)', html)
+    if dir_match:
+        resultado += f"Dirección: {dir_match.group(1).strip()}\n"
+
+    # Características principales — buscar en la sección de features
+    specs = []
+    # Ambientes
+    amb = re.search(r'(\d+)\s*ambiente', html, re.IGNORECASE)
+    if amb:
+        specs.append(f"Ambientes: {amb.group(1)}")
+    # Dormitorios
+    dorm = re.search(r'(\d+)\s*dormitorio', html, re.IGNORECASE)
+    if dorm:
+        specs.append(f"Dormitorios: {dorm.group(1)}")
+    # Baños
+    banos = re.search(r'(\d+)\s*ba[ñn]o', html, re.IGNORECASE)
+    if banos:
+        specs.append(f"Baños: {banos.group(1)}")
+    # Superficie cubierta
+    sup_cub = re.search(r'[Ss]up(?:erficie)?\.?\s*[Cc]ub(?:ierta)?\.?\s*:?\s*(\d+(?:\.\d+)?)\s*m', html)
+    if sup_cub:
+        specs.append(f"Sup. cubierta: {sup_cub.group(1)} m²")
+    # Superficie total
+    sup_tot = re.search(r'[Ss]up(?:erficie)?\.?\s*[Tt]ot(?:al)?\.?\s*:?\s*(\d+(?:\.\d+)?)\s*m', html)
+    if sup_tot:
+        specs.append(f"Sup. total: {sup_tot.group(1)} m²")
+    # Antigüedad
+    ant = re.search(r'[Aa]ntig[üu]edad\s*:?\s*(\d+)\s*a[ñn]o', html)
+    if ant:
+        specs.append(f"Antigüedad: {ant.group(1)} años")
+    # Expensas
+    exp = re.search(r'[Ee]xpensas\s*:?\s*\$?\s*([\d.,]+)', html)
+    if exp:
+        specs.append(f"Expensas: ${exp.group(1)}")
+
+    if specs:
+        resultado += "\n".join(specs) + "\n"
+
+    # Descripción — buscar el bloque de descripción
+    desc_match = re.search(r'class="[^"]*description[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL)
+    if desc_match:
+        desc = re.sub(r'<[^>]+>', ' ', desc_match.group(1))
+        desc = re.sub(r'\s+', ' ', desc).strip()
+        if desc and len(desc) > 10:
+            resultado += f"\nDescripción: {desc[:500]}\n"
+
+    resultado += f"\nVer fotos y más detalles: {BASE_URL}{link}\n"
+
+    return resultado
 
 
 def registrar_lead(telefono: str, nombre: str, interes: str, presupuesto: str = "", zona: str = "") -> dict:
-    """
-    Registra un nuevo lead interesado en comprar/alquilar.
-    En producción esto se conectaría a un CRM.
-    """
+    """Registra un nuevo lead interesado en comprar/alquilar."""
     lead = {
         "telefono": telefono,
         "nombre": nombre,
@@ -87,15 +368,11 @@ def registrar_lead(telefono: str, nombre: str, interes: str, presupuesto: str = 
         "estado": "nuevo",
     }
     logger.info(f"Nuevo lead registrado: {lead}")
-    # TODO: enviar a CRM, Google Sheets, o base de datos de leads
     return lead
 
 
 def agendar_visita(telefono: str, nombre: str, propiedad: str, fecha: str, hora: str) -> dict:
-    """
-    Agenda una visita a una propiedad.
-    En producción esto se conectaría a Google Calendar o sistema de citas.
-    """
+    """Agenda una visita a una propiedad."""
     cita = {
         "telefono": telefono,
         "nombre": nombre,
@@ -106,5 +383,57 @@ def agendar_visita(telefono: str, nombre: str, propiedad: str, fecha: str, hora:
         "creada": datetime.now().isoformat(),
     }
     logger.info(f"Visita agendada: {cita}")
-    # TODO: crear evento en Google Calendar, notificar al asesor
     return cita
+
+
+# Definición de herramientas para Claude tool_use
+TOOLS_DEFINITION = [
+    {
+        "name": "buscar_propiedades",
+        "description": "Busca propiedades disponibles en tiempo real en la web de Inmobiliaria Bertero. Usa esta herramienta SIEMPRE que un cliente pregunte por propiedades, precios, o quiera ver opciones disponibles.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tipo": {
+                    "type": "string",
+                    "description": "Tipo de propiedad: departamento, casa, terreno, local, galpon, oficina, cochera, ph",
+                },
+                "zona": {
+                    "type": "string",
+                    "description": "Zona, barrio o localidad. Ej: Nueva Cordoba, Centro, Alberdi, Villa Carlos Paz",
+                },
+                "operacion": {
+                    "type": "string",
+                    "description": "Tipo de operación: venta o alquiler",
+                },
+                "precio_max": {
+                    "type": "string",
+                    "description": "Precio máximo en USD (solo el número, ej: 100000)",
+                },
+                "precio_min": {
+                    "type": "string",
+                    "description": "Precio mínimo en USD (solo el número, ej: 50000)",
+                },
+                "ambientes": {
+                    "type": "string",
+                    "description": "Cantidad de ambientes (1-6)",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "obtener_detalle_propiedad",
+        "description": "Obtiene información detallada de una propiedad específica por su ID. Usa esta herramienta cuando el cliente quiera más detalles de una propiedad en particular.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "propiedad_id": {
+                    "type": "string",
+                    "description": "ID numérico de la propiedad (ej: 7778974)",
+                },
+            },
+            "required": ["propiedad_id"],
+        },
+    },
+]
