@@ -30,7 +30,13 @@ class ProveedorWhapi(ProveedorWhatsApp):
     async def parsear_webhook(self, request: Request) -> list[MensajeEntrante]:
         """Parsea el payload de Whapi.cloud incluyendo respuestas de botones/listas."""
         body = await request.json()
-        logger.debug(f"Webhook payload: {body}")
+        # Log a nivel INFO para diagnosticar en producción
+        raw_messages = body.get("messages", [])
+        if raw_messages:
+            for rm in raw_messages:
+                logger.info(f"RAW MSG: type={rm.get('type')} from_me={rm.get('from_me')} chat={rm.get('chat_id','')} text={rm.get('text')} interactive={rm.get('interactive')} keys={list(rm.keys())}")
+        else:
+            logger.info(f"Webhook sin messages. Keys: {list(body.keys())}")
         mensajes = []
         for msg in body.get("messages", []):
             # Extraer texto — puede venir en text.body o en otros campos
