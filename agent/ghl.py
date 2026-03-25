@@ -304,6 +304,32 @@ async def buscar_oportunidad_por_contacto(contact_id: str) -> str | None:
         return None
 
 
+async def obtener_detalles_oportunidad(oportunidad_id: str) -> dict:
+    """Obtiene los detalles de una oportunidad (nombre, dirección, link, resumen)."""
+    if not GHL_API_KEY or not oportunidad_id:
+        return {}
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{GHL_API_BASE}/opportunities/{oportunidad_id}",
+                headers=_headers(),
+            )
+            if r.status_code == 200:
+                opp = r.json().get("opportunity", {})
+                custom = {cf["id"]: cf.get("fieldValueString", cf.get("value", "")) for cf in opp.get("customFields", [])}
+                return {
+                    "nombre_opp": opp.get("name", ""),
+                    "propiedad_direccion": custom.get(CF_OPP_PROPIEDAD_DIR, ""),
+                    "propiedad_link": custom.get(CF_OPP_PROPIEDAD_LINK, ""),
+                    "propiedad_resumen": custom.get(CF_OPP_RESUMEN, ""),
+                }
+            return {}
+    except Exception as e:
+        logger.error(f"Error obteniendo detalles oportunidad: {e}")
+        return {}
+
+
 async def buscar_contacto_por_email(email: str) -> str | None:
     """Busca un contacto por email. Retorna el contactId o None."""
     if not GHL_API_KEY or not email:

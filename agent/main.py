@@ -22,6 +22,7 @@ from agent.ghl import (
     buscar_contacto_por_telefono,
     buscar_oportunidad_por_contacto,
     mover_oportunidad,
+    obtener_detalles_oportunidad,
 )
 import httpx as httpx_client
 
@@ -166,6 +167,12 @@ async def ghl_webhook_handler(request: Request):
             logger.warning(f"GHL webhook: no hay oportunidad para contacto {contact_id}")
             return {"status": "ok", "action": "opportunity_not_found"}
 
+        # Obtener detalles de la propiedad antes de mover
+        detalles = await obtener_detalles_oportunidad(opp_id)
+        propiedad_dir = detalles.get("propiedad_direccion", "")
+        propiedad_link = detalles.get("propiedad_link", "")
+        propiedad_resumen = detalles.get("propiedad_resumen", "")
+
         # Mover oportunidad a "Visita agendada"
         movida = await mover_oportunidad(opp_id, "visita_agendada")
         logger.info(f"GHL webhook — oportunidad {opp_id} movida a visita_agendada: {movida}")
@@ -196,8 +203,11 @@ async def ghl_webhook_handler(request: Request):
                     r = await client.post(n8n_url, json={
                         "nombre": nombre,
                         "email_cliente": email or "",
-                        "email_vendedor": os.getenv("VENDEDOR_EMAIL", "ventasbertero@gmail.com"),
+                        "email_vendedor": os.getenv("VENDEDOR_EMAIL", "hola@propulsar.ai"),
                         "telefono": phone or "",
+                        "propiedad_direccion": propiedad_dir,
+                        "propiedad_link": propiedad_link,
+                        "propiedad_resumen": propiedad_resumen,
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")
             except Exception as e:
