@@ -492,22 +492,25 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
     # Armar filas de lista (máximo 10 — límite de WhatsApp)
     filas = []
     for i, prop in enumerate(propiedades[:10], 1):
-        # Titulo: número + tipo + zona (máx 24 chars)
-        titulo = f"{i}. {prop.get('tipo', 'Propiedad')} — {prop.get('zona', '')}"
+        # Titulo: número + zona/dirección (lo más distintivo, máx 24 chars)
+        zona = prop.get('zona', '').strip()
+        titulo = f"{i}. {zona}" if zona else f"{i}. Propiedad {prop.get('id', '')}"
         if len(titulo) > 24:
             titulo = titulo[:21] + "..."
 
-        # Descripción: precio + dirección + superficie (máx 72 chars)
+        # Descripción: tipo + precio + dirección + superficie (máx 72 chars)
         desc_parts = []
+        desc_parts.append(prop.get('tipo', 'Propiedad'))
         if prop.get("precio"):
             desc_parts.append(prop["precio"])
         if prop.get("direccion"):
-            desc_parts.append(prop["direccion"])
+            # Solo la parte de la dirección sin repetir la zona
+            dir_limpia = prop["direccion"].replace(zona, "").strip().strip(",").strip()
+            if dir_limpia:
+                desc_parts.append(dir_limpia)
         sup = prop.get("superficie", "")
-        if sup and not sup.startswith("0") and sup != "0 m²" and sup != "0.0 m²":
+        if sup and not sup.startswith("0"):
             desc_parts.append(sup)
-        if not desc_parts:
-            desc_parts.append(f"ID: {prop.get('id', '?')}")
         descripcion = " | ".join(desc_parts)
         if len(descripcion) > 72:
             descripcion = descripcion[:69] + "..."

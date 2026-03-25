@@ -81,13 +81,13 @@ Usá esta herramienta en estos momentos ESPECÍFICOS del flujo de conversación:
 
 2. TIPO DE PROPIEDAD — Después de que el cliente elige comprar o alquilar: lista con tipos de propiedad.
    Sección "Tipo de propiedad":
-   - Casa (id:tipo_casa, descripcion:"Casa independiente")
-   - Departamento (id:tipo_depto, descripcion:"Unidad en edificio")
-   - Terreno/Lote (id:tipo_terreno, descripcion:"Para construir")
-   - Local comercial (id:tipo_local, descripcion:"Para negocio")
-   - Galpón (id:tipo_galpon, descripcion:"Depósito o industria")
-   - Oficina (id:tipo_oficina, descripcion:"Espacio de trabajo")
-   - No tengo preferencia (id:tipo_cualquiera, descripcion:"Ver todo")
+   - 🏡 Casa (id:tipo_casa, descripcion:"Casa independiente")
+   - 🏢 Departamento (id:tipo_depto, descripcion:"Unidad en edificio")
+   - 🌿 Terreno/Lote (id:tipo_terreno, descripcion:"Para construir")
+   - 🏪 Local comercial (id:tipo_local, descripcion:"Para negocio")
+   - 🏭 Galpón (id:tipo_galpon, descripcion:"Depósito o industria")
+   - 🏛️ Oficina (id:tipo_oficina, descripcion:"Espacio de trabajo")
+   - 📋 Sin preferencia (id:tipo_cualquiera, descripcion:"Ver todo")
 
 3. ZONA — Después de elegir tipo de propiedad: lista con zonas principales.
    Sección "Zonas Centro": Centro (id:zona_centro), Nueva Córdoba (id:zona_nueva_cordoba), Güemes (id:zona_guemes)
