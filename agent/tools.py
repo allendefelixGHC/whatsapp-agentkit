@@ -13,6 +13,9 @@ import logging
 import httpx
 from datetime import datetime
 
+from agent.session import guardar_propiedades, obtener_propiedades
+from agent.providers.base import Respuesta, SeccionLista, FilaLista
+
 logger = logging.getLogger("agentkit")
 
 BASE_URL = "https://www.inmobiliariabertero.com.ar"
@@ -94,6 +97,7 @@ async def buscar_propiedades(
     ambientes: str = "",
     limite: int = 5,
     pagina: int = 1,
+    telefono: str = "",
 ) -> str:
     """
     Busca propiedades en tiempo real desde la web de Inmobiliaria Bertero.
@@ -196,6 +200,16 @@ async def buscar_propiedades(
 
         if fin < total_encontradas:
             resultado += f"Hay {total_encontradas - fin} propiedades más. Pedime 'ver más' para la siguiente página.\n"
+
+        # Guardar propiedades mostradas en cache de sesión para lista de visitas
+        if telefono:
+            # Acumular: si es página 2+, sumar a las anteriores
+            props_previas = obtener_propiedades(telefono) if pagina > 1 else []
+            props_nuevas = props_previas + pagina_actual
+            guardar_propiedades(telefono, props_nuevas)
+        else:
+            # Sin teléfono, guardar con key genérica (fallback)
+            guardar_propiedades("_last", pagina_actual)
 
         return resultado
 
@@ -457,6 +471,52 @@ async def obtener_link_agendar() -> str:
     return f"Link para agendar visita: {obtener_link_booking()}"
 
 
+def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
+    """
+    Retorna una lista interactiva con las propiedades mostradas al cliente
+    para que elija cuál quiere visitar.
+    """
+    propiedades = obtener_propiedades(telefono)
+    if not propiedades:
+        return Respuesta(
+            tipo="texto",
+            texto="No tengo propiedades recientes para mostrarte. ¿Querés que busquemos propiedades primero?",
+        )
+
+    # Armar filas de lista (máximo 10 — límite de WhatsApp)
+    filas = []
+    for prop in propiedades[:10]:
+        # Titulo: tipo + zona (máx 24 chars)
+        titulo = f"{prop.get('tipo', 'Propiedad')} — {prop.get('zona', '')}"
+        if len(titulo) > 24:
+            titulo = titulo[:21] + "..."
+
+        # Descripción: precio + dirección (máx 72 chars)
+        desc_parts = []
+        if prop.get("precio"):
+            desc_parts.append(prop["precio"])
+        if prop.get("direccion"):
+            desc_parts.append(prop["direccion"])
+        elif prop.get("superficie"):
+            desc_parts.append(prop["superficie"])
+        descripcion = " | ".join(desc_parts)
+        if len(descripcion) > 72:
+            descripcion = descripcion[:69] + "..."
+
+        filas.append(FilaLista(
+            id=f"visita_prop_{prop.get('id', '')}",
+            titulo=titulo,
+            descripcion=descripcion,
+        ))
+
+    return Respuesta(
+        tipo="lista",
+        texto="¿A cuál de estas propiedades te gustaría agendar una visita?",
+        texto_boton_lista="Ver propiedades",
+        secciones=[SeccionLista(titulo="Propiedades", filas=filas)],
+    )
+
+
 # Definición de herramientas para Claude tool_use
 TOOLS_DEFINITION = [
     {
@@ -492,6 +552,10 @@ TOOLS_DEFINITION = [
                 "pagina": {
                     "type": "integer",
                     "description": "Página de resultados (default 1). Usá 2, 3, etc. para ver más opciones con los mismos filtros.",
+                },
+                "telefono": {
+                    "type": "string",
+                    "description": "Teléfono del cliente (viene del contexto interno). SIEMPRE pasalo para guardar los resultados de la búsqueda.",
                 },
             },
             "required": [],
@@ -570,6 +634,25 @@ Esta herramienta también retorna el link de booking para agendar visitas.""",
             "type": "object",
             "properties": {},
             "required": [],
+        },
+    },
+    {
+        "name": "obtener_propiedades_para_visita",
+        "description": """Muestra al cliente una lista interactiva con las propiedades que vio en la búsqueda para que elija cuál quiere visitar.
+Usá esta herramienta SIEMPRE que:
+- El cliente haga clic en "Agendar visita" después de una búsqueda
+- El cliente diga que quiere visitar una propiedad pero no especifique cuál
+La lista se arma con las propiedades de la última búsqueda del cliente.
+IMPORTANTE: Pasá el teléfono del cliente (viene del contexto interno).""",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "telefono": {
+                    "type": "string",
+                    "description": "Teléfono del cliente (viene del contexto interno del chat)",
+                },
+            },
+            "required": ["telefono"],
         },
     },
 ]

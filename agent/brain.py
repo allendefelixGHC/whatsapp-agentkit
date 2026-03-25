@@ -19,6 +19,7 @@ from agent.tools import (
     obtener_detalle_propiedad,
     registrar_lead_ghl,
     obtener_link_agendar,
+    obtener_propiedades_para_visita,
     TOOLS_DEFINITION,
 )
 from agent.providers.base import Respuesta, Boton, SeccionLista, FilaLista
@@ -201,6 +202,8 @@ async def _ejecutar_herramienta(nombre: str, parametros: dict) -> str | Respuest
         return await registrar_lead_ghl(**parametros)
     elif nombre == "obtener_link_agendar":
         return await obtener_link_agendar()
+    elif nombre == "obtener_propiedades_para_visita":
+        return obtener_propiedades_para_visita(**parametros)
     elif nombre in ("enviar_botones", "enviar_lista"):
         return _construir_respuesta_interactiva(nombre, parametros)
     else:
