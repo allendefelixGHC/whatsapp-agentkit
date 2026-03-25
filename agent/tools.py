@@ -634,7 +634,8 @@ Usá esta herramienta cuando:
 - El cliente quiere agendar una visita
 - El cliente pide hablar con un asesor
 IMPORTANTE: Necesitás nombre + email del cliente para registrarlo. El teléfono viene del webhook.
-El link de booking se pre-llena con nombre y email para que el cliente no los reingrese.""",
+El link de booking se pre-llena con nombre y email para que el cliente no los reingrese.
+SIEMPRE incluí propiedad_id, propiedad_link, propiedad_direccion y resumen si el cliente eligió una propiedad. Estos datos se usan en los emails de confirmación.""",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -664,19 +665,19 @@ El link de booking se pre-llena con nombre y email para que el cliente no los re
                 },
                 "propiedad_id": {
                     "type": "string",
-                    "description": "ID de la propiedad de interés (si aplica)",
+                    "description": "ID numérico de la propiedad (ej: 7791415). OBLIGATORIO si el cliente eligió una propiedad.",
                 },
                 "propiedad_link": {
                     "type": "string",
-                    "description": "Link de la propiedad de interés (si aplica)",
+                    "description": "URL completa de la propiedad en inmobiliariabertero.com.ar. OBLIGATORIO si el cliente eligió una propiedad.",
                 },
                 "propiedad_direccion": {
                     "type": "string",
-                    "description": "Dirección de la propiedad de interés (si aplica)",
+                    "description": "Dirección de la propiedad (ej: Eufrazio Loza al 1000, Barrio Pueyrredón). OBLIGATORIO si el cliente eligió una propiedad.",
                 },
                 "resumen": {
                     "type": "string",
-                    "description": "Resumen breve de la conversación: qué preguntó, qué le interesó",
+                    "description": "Resumen breve: qué busca, precio, propiedad elegida. OBLIGATORIO. Ej: 'El cliente busca comprar una casa en Barrio Pueyrredón, USD 85.000. Quiere agendar una visita.'",
                 },
             },
             "required": ["telefono", "nombre"],

@@ -8,6 +8,7 @@ Soporta mensajes de texto, botones y listas interactivas.
 """
 
 import os
+import json
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
@@ -138,7 +139,7 @@ async def ghl_webhook_handler(request: Request):
     """
     try:
         body = await request.json()
-        logger.info(f"Webhook GHL recibido: {body.get('type', 'unknown')}")
+        logger.info(f"Webhook GHL recibido: {json.dumps(body, default=str)[:500]}")
 
         # GHL envía datos del contacto y la cita
         # Extraer datos del contacto — puede venir en distintos formatos
@@ -147,6 +148,8 @@ async def ghl_webhook_handler(request: Request):
         phone = body.get("phone") or body.get("contact", {}).get("phone") or ""
         first_name = body.get("first_name") or body.get("contact", {}).get("firstName") or ""
         appointment_status = body.get("appointment_status") or body.get("status") or ""
+        # Fecha/hora de la cita (si viene del webhook)
+        fecha_cita = body.get("date_time") or body.get("start_time") or body.get("selectedTimezone", {}).get("startTime", "") or ""
 
         logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}")
 
@@ -209,6 +212,7 @@ async def ghl_webhook_handler(request: Request):
                         "propiedad_direccion": propiedad_dir,
                         "propiedad_link": propiedad_link,
                         "propiedad_resumen": propiedad_resumen,
+                        "fecha_cita": fecha_cita,
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")
             except Exception as e:
