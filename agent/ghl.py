@@ -317,12 +317,35 @@ async def obtener_detalles_oportunidad(oportunidad_id: str) -> dict:
             )
             if r.status_code == 200:
                 opp = r.json().get("opportunity", {})
+                nombre_opp = opp.get("name", "")
                 custom = {cf["id"]: cf.get("fieldValueString", cf.get("value", "")) for cf in opp.get("customFields", [])}
+
+                # Leer de custom fields primero
+                direccion = custom.get(CF_OPP_PROPIEDAD_DIR, "")
+                link = custom.get(CF_OPP_PROPIEDAD_LINK, "")
+                resumen = custom.get(CF_OPP_RESUMEN, "")
+
+                # Si custom fields están vacíos, extraer del nombre de la oportunidad
+                # Formato: "Operacion — Nombre — Dirección"
+                if not direccion and " — " in nombre_opp:
+                    partes = nombre_opp.split(" — ")
+                    if len(partes) >= 3:
+                        direccion = partes[2].strip()
+
+                if not resumen and nombre_opp:
+                    resumen = nombre_opp
+
+                # Reconstruir link desde propiedad_id si el link está vacío
+                propiedad_id = custom.get(CF_OPP_PROPIEDAD_ID, "")
+                if not link and propiedad_id:
+                    link = f"https://www.inmobiliariabertero.com.ar/p/{propiedad_id}"
+
+                logger.info(f"Detalles oportunidad {oportunidad_id}: dir={direccion}, link={link[:50] if link else 'N/A'}")
                 return {
-                    "nombre_opp": opp.get("name", ""),
-                    "propiedad_direccion": custom.get(CF_OPP_PROPIEDAD_DIR, ""),
-                    "propiedad_link": custom.get(CF_OPP_PROPIEDAD_LINK, ""),
-                    "propiedad_resumen": custom.get(CF_OPP_RESUMEN, ""),
+                    "nombre_opp": nombre_opp,
+                    "propiedad_direccion": direccion,
+                    "propiedad_link": link,
+                    "propiedad_resumen": resumen,
                 }
             return {}
     except Exception as e:
