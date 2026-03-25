@@ -103,6 +103,22 @@ class ProveedorWhapi(ProveedorWhatsApp):
             ))
         return mensajes
 
+    async def enviar_indicador_tipeo(self, telefono: str) -> bool:
+        """Envía indicador de 'escribiendo...' via Whapi.cloud."""
+        if not self.token:
+            return False
+        try:
+            async with httpx.AsyncClient() as client:
+                r = await client.post(
+                    f"{API_BASE}/chats/{telefono}/typing",
+                    json={"status": "typing"},
+                    headers=self._headers(),
+                )
+                return r.status_code == 200
+        except Exception as e:
+            logger.debug(f"Error enviando typing indicator: {e}")
+            return False
+
     async def enviar_mensaje(self, telefono: str, mensaje: str) -> bool:
         """Envía mensaje de texto via Whapi.cloud."""
         if not self.token:

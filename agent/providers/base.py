@@ -94,6 +94,10 @@ class ProveedorWhatsApp(ABC):
         else:
             return await self.enviar_mensaje(telefono, respuesta.texto)
 
+    async def enviar_indicador_tipeo(self, telefono: str) -> bool:
+        """Envía indicador de 'escribiendo...' al chat. Override en cada proveedor."""
+        return False
+
     async def validar_webhook(self, request: Request) -> dict | int | None:
         """Verificación GET del webhook (solo Meta la requiere). Retorna respuesta o None."""
         return None

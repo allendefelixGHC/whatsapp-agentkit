@@ -85,10 +85,18 @@ async def webhook_handler(request: Request):
             else:
                 logger.info(f"Mensaje de {msg.telefono}: {msg.texto}")
 
+            # Enviar indicador de "escribiendo..." mientras se genera la respuesta
+            await proveedor.enviar_indicador_tipeo(msg.telefono)
+
             # Obtener historial y generar respuesta
             # Pasamos el teléfono y contexto de interacción (botón/lista) para que Claude sepa qué pasó
             historial = await obtener_historial(msg.telefono)
+            es_cliente_nuevo = len(historial) == 0
             contexto = f"[CONTEXTO INTERNO - NO MOSTRAR AL CLIENTE: teléfono del cliente es {msg.telefono}]"
+            if es_cliente_nuevo:
+                contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía y dale una bienvenida cálida.]"
+            else:
+                contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. Saludalo por su nombre si lo conocés del historial, sin repetir la presentación completa.]"
             if msg.lista_id:
                 contexto += f"\n[El cliente seleccionó de una lista interactiva. ID seleccionado: {msg.lista_id}]"
             elif msg.boton_id:
