@@ -110,14 +110,19 @@ async def crear_o_actualizar_contacto(
         return {"error": "GHL no configurado"}
 
     # Limpiar teléfono (remover @s.whatsapp.net si viene del webhook)
-    tel_limpio = telefono.replace("@s.whatsapp.net", "").replace("@c.us", "")
-    # Validar que parece un número real
+    tel_limpio = telefono.replace("@s.whatsapp.net", "").replace("@c.us", "").replace("+", "")
+    # Solo dígitos para validación
     digits_only = "".join(c for c in tel_limpio if c.isdigit())
     if len(digits_only) < 8:
         logger.warning(f"Teléfono inválido para GHL: {telefono}")
         return {"error": "Teléfono inválido", "id": "", "vendedor": asignar_vendedor(zona) if zona else VENDEDOR_DEFAULT}
-    if not tel_limpio.startswith("+"):
-        tel_limpio = f"+{tel_limpio}"
+    tel_limpio = digits_only
+    # Fix teléfono argentino: WhatsApp envía 5493517575244 (con 9 móvil)
+    # pero GHL necesita +543517575244 (sin el 9 móvil)
+    if tel_limpio.startswith("549") and len(tel_limpio) == 13:
+        tel_limpio = "54" + tel_limpio[3:]
+        logger.info(f"Teléfono argentino normalizado: 549... → +{tel_limpio}")
+    tel_limpio = f"+{tel_limpio}"
 
     # Asignar vendedor
     vendedor = asignar_vendedor(zona) if zona else VENDEDOR_DEFAULT
@@ -267,6 +272,14 @@ async def mover_oportunidad(oportunidad_id: str, stage: str) -> bool:
         return False
 
 
-def obtener_link_booking() -> str:
-    """Retorna el link de booking del calendario de visitas."""
-    return BOOKING_LINK
+def obtener_link_booking(nombre: str = "", email: str = "") -> str:
+    """Retorna el link de booking pre-llenado con datos del cliente."""
+    from urllib.parse import urlencode
+    params = {"locale": "es"}
+    if nombre:
+        params["name"] = nombre
+    if email:
+        params["email"] = email
+    # Nota: NO pasamos phone — GHL widget no lo maneja bien
+    query = urlencode(params)
+    return f"{BOOKING_LINK}?{query}"

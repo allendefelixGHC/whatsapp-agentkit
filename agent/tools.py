@@ -413,6 +413,7 @@ def _parsear_detalle(html: str, link: str) -> str:
 async def registrar_lead_ghl(
     telefono: str,
     nombre: str,
+    email: str = "",
     operacion: str = "",
     tipo_propiedad: str = "",
     zona: str = "",
@@ -423,7 +424,7 @@ async def registrar_lead_ghl(
 ) -> str:
     """
     Registra un lead en GHL: crea contacto + oportunidad en el pipeline.
-    Retorna confirmación con datos del lead y vendedor asignado.
+    Retorna confirmación con datos del lead, vendedor asignado y link de booking pre-llenado.
     """
     from agent.ghl import crear_o_actualizar_contacto, crear_oportunidad, obtener_link_booking
 
@@ -431,17 +432,19 @@ async def registrar_lead_ghl(
     contacto = await crear_o_actualizar_contacto(
         telefono=telefono,
         nombre=nombre,
+        email=email,
         operacion=operacion,
         tipo_propiedad=tipo_propiedad,
         zona=zona,
     )
 
+    booking_link = obtener_link_booking(nombre=nombre, email=email)
+
     if contacto.get("error") and not contacto.get("id"):
-        # Si falló pero tenemos vendedor, seguimos con el link de booking
         vendedor = contacto.get("vendedor", "un asesor")
         return (
             f"No pude registrar el lead en el CRM pero el vendedor asignado es {vendedor}.\n"
-            f"Link de booking para agendar visita: {obtener_link_booking()}\n"
+            f"Link de booking para agendar visita: {booking_link}\n"
         )
 
     # 2. Crear oportunidad
@@ -457,10 +460,12 @@ async def registrar_lead_ghl(
 
     resultado = f"Lead registrado exitosamente en el CRM.\n"
     resultado += f"Nombre: {nombre}\n"
+    if email:
+        resultado += f"Email: {email}\n"
     resultado += f"Vendedor asignado: {contacto.get('vendedor', 'No asignado')}\n"
     if oportunidad.get("id"):
         resultado += f"Oportunidad creada: {oportunidad.get('nombre', '')}\n"
-    resultado += f"Link de booking para agendar visita: {obtener_link_booking()}\n"
+    resultado += f"Link de booking para agendar visita (pre-llenado con nombre y email): {booking_link}\n"
 
     return resultado
 
@@ -579,21 +584,25 @@ TOOLS_DEFINITION = [
         "name": "registrar_lead_ghl",
         "description": """Registra un lead en el CRM (GoHighLevel): crea el contacto y la oportunidad en el pipeline de ventas.
 Usá esta herramienta cuando:
-- El cliente da su nombre y muestra interés concreto en una propiedad
+- El cliente da su nombre, email y muestra interés concreto en una propiedad
 - El cliente quiere agendar una visita
 - El cliente pide hablar con un asesor
-IMPORTANTE: Necesitás al menos el nombre del cliente para registrarlo. El teléfono viene del webhook.
-Esta herramienta también retorna el link de booking para agendar visitas.""",
+IMPORTANTE: Necesitás nombre + email del cliente para registrarlo. El teléfono viene del webhook.
+El link de booking se pre-llena con nombre y email para que el cliente no los reingrese.""",
         "input_schema": {
             "type": "object",
             "properties": {
                 "telefono": {
                     "type": "string",
-                    "description": "Teléfono del cliente (viene del chat de WhatsApp)",
+                    "description": "Teléfono del cliente (viene del contexto interno del chat de WhatsApp)",
                 },
                 "nombre": {
                     "type": "string",
                     "description": "Nombre completo del cliente",
+                },
+                "email": {
+                    "type": "string",
+                    "description": "Email del cliente (pedirlo junto con el nombre)",
                 },
                 "operacion": {
                     "type": "string",

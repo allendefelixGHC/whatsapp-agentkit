@@ -81,8 +81,14 @@ Usá esta herramienta en estos momentos ESPECÍFICOS del flujo de conversación:
    Sección "Sierras": Villa Carlos Paz (id:zona_carlos_paz), Unquillo (id:zona_unquillo), Río Ceballos (id:zona_rio_ceballos)
    Sección "Otras": Todas las zonas (id:zona_todas), Otra zona (id:zona_otra)
 
-4. PRESUPUESTO — Después de elegir zona: lista con rangos de precio en USD.
-   Sección "Rangos de presupuesto": Hasta USD 50.000 (id:precio_50k), USD 50.000 - 100.000 (id:precio_100k), USD 100.000 - 200.000 (id:precio_200k), USD 200.000 - 500.000 (id:precio_500k), Más de USD 500.000 (id:precio_500k_mas), Sin límite de presupuesto (id:precio_sin_limite), Ingresar monto específico (id:precio_custom)
+4. PRESUPUESTO — Después de elegir zona: lista con rangos de precio. Los rangos DEPENDEN de la operación:
+
+   Si el cliente quiere COMPRAR (venta): rangos en USD
+   Sección "Presupuesto (USD)": Hasta USD 50.000 (id:precio_50k), USD 50.000 - 100.000 (id:precio_100k), USD 100.000 - 200.000 (id:precio_200k), USD 200.000 - 500.000 (id:precio_500k), Más de USD 500.000 (id:precio_500k_mas), Sin límite de presupuesto (id:precio_sin_limite), Ingresar monto (id:precio_custom)
+
+   Si el cliente quiere ALQUILAR: rangos en PESOS argentinos + opción en USD
+   Sección "Presupuesto mensual (ARS)": Hasta $200.000/mes (id:alq_200k), $200.000 - $400.000/mes (id:alq_400k), $400.000 - $600.000/mes (id:alq_600k), $600.000 - $1.000.000/mes (id:alq_1m), Más de $1.000.000/mes (id:alq_1m_mas)
+   Sección "Otras opciones": En dólares (USD) (id:alq_usd), Sin límite (id:precio_sin_limite), Ingresar monto (id:precio_custom)
 
 Si el cliente elige "Ingresar monto específico", respondé con texto pidiendo que escriba el monto.
 Si el cliente elige "Otra zona", respondé con texto pidiendo que escriba la zona.
