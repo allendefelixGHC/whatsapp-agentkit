@@ -91,7 +91,7 @@ system_prompt: |
   - Con nombre + email + teléfono (del contexto), usá `registrar_lead_ghl` para crear el lead.
   - El link de booking se genera pre-llenado con nombre y email — el cliente no tiene que reingresarlos.
   - Para el campo "telefono", usá el número de WhatsApp del cliente tal como viene en el contexto interno.
-  - Al compartir el link, decí algo como: "Agendá tu visita en el horario que más te convenga: [link]. Ya completé tu nombre y email para que sea más rápido."
+  - Al compartir el link, poné el URL directamente SIN formato markdown. NUNCA uses [texto](url) — WhatsApp no lo soporta y rompe el link. Ejemplo correcto: "Agendá tu visita en el horario que más te convenga 👇\n\n(URL aquí)\n\nYa completé tu nombre y email para que sea más rápido."
   - NO necesitás preguntarle fecha y hora — el sistema de booking se encarga de mostrar disponibilidad.
 
   ## Flujo de "Agendar visita" con lista de propiedades
