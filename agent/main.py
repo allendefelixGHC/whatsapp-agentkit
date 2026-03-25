@@ -17,6 +17,12 @@ from dotenv import load_dotenv
 from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
 from agent.providers import obtener_proveedor
+from agent.ghl import (
+    buscar_contacto_por_email,
+    buscar_contacto_por_telefono,
+    buscar_oportunidad_por_contacto,
+    mover_oportunidad,
+)
 
 load_dotenv()
 
@@ -118,3 +124,65 @@ async def webhook_handler(request: Request):
     except Exception as e:
         logger.error(f"Error en webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/webhook/ghl")
+async def ghl_webhook_handler(request: Request):
+    """
+    Recibe webhooks de GHL (cita agendada/confirmada).
+    Busca la oportunidad del contacto y la mueve a 'Visita agendada'.
+    Opcionalmente envía confirmación por WhatsApp.
+    """
+    try:
+        body = await request.json()
+        logger.info(f"Webhook GHL recibido: {body.get('type', 'unknown')}")
+
+        # GHL envía datos del contacto y la cita
+        # Extraer datos del contacto — puede venir en distintos formatos
+        contact_id = body.get("contact_id") or body.get("contactId") or ""
+        email = body.get("email") or body.get("contact", {}).get("email") or ""
+        phone = body.get("phone") or body.get("contact", {}).get("phone") or ""
+        first_name = body.get("first_name") or body.get("contact", {}).get("firstName") or ""
+        appointment_status = body.get("appointment_status") or body.get("status") or ""
+
+        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}")
+
+        # Buscar contacto si no tenemos el ID directo
+        if not contact_id:
+            if email:
+                contact_id = await buscar_contacto_por_email(email)
+            if not contact_id and phone:
+                contact_id = await buscar_contacto_por_telefono(phone)
+
+        if not contact_id:
+            logger.warning("GHL webhook: no se pudo identificar el contacto")
+            return {"status": "ok", "action": "contact_not_found"}
+
+        # Buscar oportunidad del contacto
+        opp_id = await buscar_oportunidad_por_contacto(contact_id)
+        if not opp_id:
+            logger.warning(f"GHL webhook: no hay oportunidad para contacto {contact_id}")
+            return {"status": "ok", "action": "opportunity_not_found"}
+
+        # Mover oportunidad a "Visita agendada"
+        movida = await mover_oportunidad(opp_id, "visita_agendada")
+        logger.info(f"GHL webhook — oportunidad {opp_id} movida a visita_agendada: {movida}")
+
+        # Enviar WhatsApp de confirmación si tenemos el teléfono
+        if phone and movida:
+            # Normalizar teléfono para Whapi (necesita formato con @s.whatsapp.net o similar)
+            tel_whapi = phone.replace("+", "") + "@s.whatsapp.net"
+            nombre = first_name or "cliente"
+            mensaje = (
+                f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                f"Un asesor de Bertero va a estar esperándote. "
+                f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+            )
+            await proveedor.enviar_mensaje(tel_whapi, mensaje)
+            logger.info(f"WhatsApp de confirmación enviado a {phone}")
+
+        return {"status": "ok", "action": "opportunity_moved", "opportunity_id": opp_id}
+
+    except Exception as e:
+        logger.error(f"Error en webhook GHL: {e}")
+        return {"status": "error", "detail": str(e)}

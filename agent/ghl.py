@@ -272,6 +272,90 @@ async def mover_oportunidad(oportunidad_id: str, stage: str) -> bool:
         return False
 
 
+async def buscar_oportunidad_por_contacto(contact_id: str) -> str | None:
+    """Busca la oportunidad más reciente de un contacto en el pipeline. Retorna el ID o None."""
+    if not GHL_API_KEY or not contact_id:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{GHL_API_BASE}/opportunities/search",
+                params={
+                    "location_id": GHL_LOCATION_ID,
+                    "pipeline_id": PIPELINE_ID,
+                    "contact_id": contact_id,
+                    "status": "open",
+                    "limit": 1,
+                    "order": "added_asc",
+                },
+                headers=_headers(),
+            )
+            if r.status_code == 200:
+                opps = r.json().get("opportunities", [])
+                if opps:
+                    opp_id = opps[0]["id"]
+                    logger.info(f"Oportunidad encontrada para contacto {contact_id}: {opp_id}")
+                    return opp_id
+            logger.warning(f"No se encontró oportunidad para contacto {contact_id}")
+            return None
+    except Exception as e:
+        logger.error(f"Error buscando oportunidad: {e}")
+        return None
+
+
+async def buscar_contacto_por_email(email: str) -> str | None:
+    """Busca un contacto por email. Retorna el contactId o None."""
+    if not GHL_API_KEY or not email:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{GHL_API_BASE}/contacts/",
+                params={
+                    "locationId": GHL_LOCATION_ID,
+                    "query": email,
+                    "limit": 1,
+                },
+                headers=_headers(),
+            )
+            if r.status_code == 200:
+                contacts = r.json().get("contacts", [])
+                if contacts:
+                    return contacts[0]["id"]
+            return None
+    except Exception as e:
+        logger.error(f"Error buscando contacto por email: {e}")
+        return None
+
+
+async def buscar_contacto_por_telefono(telefono: str) -> str | None:
+    """Busca un contacto por teléfono. Retorna el contactId o None."""
+    if not GHL_API_KEY or not telefono:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{GHL_API_BASE}/contacts/",
+                params={
+                    "locationId": GHL_LOCATION_ID,
+                    "query": telefono,
+                    "limit": 1,
+                },
+                headers=_headers(),
+            )
+            if r.status_code == 200:
+                contacts = r.json().get("contacts", [])
+                if contacts:
+                    return contacts[0]["id"]
+            return None
+    except Exception as e:
+        logger.error(f"Error buscando contacto por teléfono: {e}")
+        return None
+
+
 def obtener_link_booking(nombre: str = "", email: str = "") -> str:
     """Retorna el link de booking pre-llenado con datos del cliente."""
     from urllib.parse import urlencode
