@@ -194,8 +194,9 @@ async def buscar_propiedades(
                 resultado += f"   Precio: {prop['precio']}\n"
             if prop['direccion']:
                 resultado += f"   Dirección: {prop['direccion']}\n"
-            if prop['superficie']:
-                resultado += f"   Superficie: {prop['superficie']}\n"
+            sup = prop.get('superficie', '')
+            if sup and not sup.startswith("0"):
+                resultado += f"   Superficie: {sup}\n"
             resultado += f"   Ver detalle: {BASE_URL}{prop['link']}\n\n"
 
         if fin < total_encontradas:
@@ -502,8 +503,9 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
             desc_parts.append(prop["precio"])
         if prop.get("direccion"):
             desc_parts.append(prop["direccion"])
-        if prop.get("superficie") and prop["superficie"] != "0 m²":
-            desc_parts.append(prop["superficie"])
+        sup = prop.get("superficie", "")
+        if sup and not sup.startswith("0") and sup != "0 m²" and sup != "0.0 m²":
+            desc_parts.append(sup)
         if not desc_parts:
             desc_parts.append(f"ID: {prop.get('id', '?')}")
         descripcion = " | ".join(desc_parts)
