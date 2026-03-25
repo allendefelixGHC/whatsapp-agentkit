@@ -477,6 +477,43 @@ async def obtener_link_agendar() -> str:
     return f"Link para agendar visita: {obtener_link_booking()}"
 
 
+def _abreviar_zona(zona: str) -> str:
+    """Abrevia nombres de zona para que quepan en 24 chars de título de WhatsApp."""
+    # Remover palabras redundantes
+    zona = zona.replace("De Las ", "de las ").replace("Del ", "del ")
+    # Abreviaciones comunes
+    abreviaciones = {
+        "Quebrada De Las Rosa": "Qda. de las Rosas",
+        "Quebrada de las Rosa": "Qda. de las Rosas",
+        "General Pueyrredon": "Gral. Pueyrredón",
+        "General Pueyrredón": "Gral. Pueyrredón",
+        "Chateau Carreras Chateau Carreras": "Chateau Carreras",
+        "Villa Carlos Paz": "V. Carlos Paz",
+        "Rio Ceballos Belisario Roldán": "Río Ceballos",
+        "Rio Ceballos": "Río Ceballos",
+        "Alta Cordoba": "Alta Córdoba",
+        "Nueva Cordoba": "Nueva Córdoba",
+        "Maipú Sección 2": "Maipú Secc. 2",
+        "Bajo Palermo": "Bajo Palermo",
+        "Yacanto Yacanto, San Javier": "Yacanto, San Javier",
+        "Yacanto, San Javier": "Yacanto, S. Javier",
+    }
+    for largo, corto in abreviaciones.items():
+        if largo.lower() in zona.lower():
+            return corto
+    # Si tiene coma, tomar solo la primera parte
+    if "," in zona:
+        zona = zona.split(",")[0].strip()
+    # Remover duplicados (ej: "Alberdi Mendoza 271" → "Alberdi")
+    palabras = zona.split()
+    if len(palabras) > 2:
+        # Intentar quedarse con las 2 primeras palabras
+        zona_corta = " ".join(palabras[:2])
+        if len(zona_corta) <= 20:  # Dejar espacio para "N. "
+            return zona_corta
+    return zona
+
+
 def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
     """
     Retorna una lista interactiva con las propiedades mostradas al cliente
@@ -492,11 +529,13 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
     # Armar filas de lista (máximo 10 — límite de WhatsApp)
     filas = []
     for i, prop in enumerate(propiedades[:10], 1):
-        # Titulo: número + zona/dirección (lo más distintivo, máx 24 chars)
+        # Titulo: número + zona/dirección optimizada para 24 chars
         zona = prop.get('zona', '').strip()
-        titulo = f"{i}. {zona}" if zona else f"{i}. Propiedad {prop.get('id', '')}"
+        zona = _abreviar_zona(zona)
+        titulo = f"{i}. {zona}" if zona else f"{i}. Prop. {prop.get('id', '')}"
+        # Si aún no cabe, recortar sin "..."
         if len(titulo) > 24:
-            titulo = titulo[:21] + "..."
+            titulo = titulo[:24]
 
         # Descripción: tipo + precio + dirección + superficie (máx 72 chars)
         desc_parts = []
