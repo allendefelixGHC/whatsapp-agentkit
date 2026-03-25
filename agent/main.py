@@ -23,7 +23,7 @@ from agent.ghl import (
     buscar_oportunidad_por_contacto,
     mover_oportunidad,
 )
-from agent.email_service import enviar_confirmacion_cliente, enviar_notificacion_vendedor
+import httpx as httpx_client
 
 load_dotenv()
 
@@ -123,7 +123,8 @@ async def webhook_handler(request: Request):
         return {"status": "ok"}
 
     except Exception as e:
-        logger.error(f"Error en webhook: {e}")
+        import traceback
+        logger.error(f"Error en webhook: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -183,12 +184,19 @@ async def ghl_webhook_handler(request: Request):
                 await proveedor.enviar_mensaje(tel_whapi, mensaje)
                 logger.info(f"WhatsApp de confirmación enviado a {phone}")
 
-            # 2. Email de confirmación al cliente
-            if email:
-                enviar_confirmacion_cliente(email, nombre)
-
-            # 3. Email de notificación al vendedor
-            enviar_notificacion_vendedor(nombre, email or "N/A", phone or "N/A")
+            # 2 y 3. Emails via n8n (cliente + vendedor)
+            try:
+                n8n_url = os.getenv("N8N_EMAIL_WEBHOOK", "https://n8n-n8n.bacu5y.easypanel.host/webhook/agentkit-send-emails")
+                async with httpx_client.AsyncClient(timeout=15.0) as client:
+                    r = await client.post(n8n_url, json={
+                        "nombre": nombre,
+                        "email_cliente": email or "",
+                        "email_vendedor": os.getenv("VENDEDOR_EMAIL", "ventasbertero@gmail.com"),
+                        "telefono": phone or "",
+                    })
+                    logger.info(f"n8n emails enviados: {r.status_code}")
+            except Exception as e:
+                logger.error(f"Error enviando emails via n8n: {e}")
 
         return {"status": "ok", "action": "opportunity_moved", "opportunity_id": opp_id}
 

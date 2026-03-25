@@ -109,9 +109,9 @@ class ProveedorWhapi(ProveedorWhatsApp):
             return False
         try:
             async with httpx.AsyncClient() as client:
-                r = await client.post(
-                    f"{API_BASE}/chats/{telefono}/typing",
-                    json={"status": "typing"},
+                r = await client.put(
+                    f"{API_BASE}/presences/{telefono}",
+                    json={"presence": "typing"},
                     headers=self._headers(),
                 )
                 return r.status_code == 200
