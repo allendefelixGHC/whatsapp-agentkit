@@ -175,7 +175,12 @@ async def ghl_webhook_handler(request: Request):
         if movida:
             # 1. WhatsApp de confirmación al cliente
             if phone:
-                tel_whapi = phone.replace("+", "") + "@s.whatsapp.net"
+                tel_limpio = phone.replace("+", "")
+                # Fix teléfono argentino: GHL guarda 543517575244 (sin 9)
+                # pero WhatsApp necesita 5493517575244 (con 9 móvil)
+                if tel_limpio.startswith("54") and not tel_limpio.startswith("549") and len(tel_limpio) == 12:
+                    tel_limpio = "549" + tel_limpio[2:]
+                tel_whapi = tel_limpio + "@s.whatsapp.net"
                 mensaje = (
                     f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
                     f"Un asesor de Bertero va a estar esperándote. "
