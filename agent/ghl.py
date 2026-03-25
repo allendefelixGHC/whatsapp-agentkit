@@ -277,7 +277,11 @@ def obtener_link_booking(nombre: str = "", email: str = "") -> str:
     from urllib.parse import urlencode
     params = {"locale": "es"}
     if nombre:
-        params["name"] = nombre
+        # GHL widget usa firstName y lastName separados
+        partes = nombre.strip().split(" ", 1)
+        params["firstName"] = partes[0]
+        if len(partes) > 1:
+            params["lastName"] = partes[1]
     if email:
         params["email"] = email
     # Nota: NO pasamos phone — GHL widget no lo maneja bien

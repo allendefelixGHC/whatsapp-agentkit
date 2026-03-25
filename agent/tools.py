@@ -490,9 +490,9 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
 
     # Armar filas de lista (máximo 10 — límite de WhatsApp)
     filas = []
-    for prop in propiedades[:10]:
-        # Titulo: tipo + zona (máx 24 chars)
-        titulo = f"{prop.get('tipo', 'Propiedad')} — {prop.get('zona', '')}"
+    for i, prop in enumerate(propiedades[:10], 1):
+        # Titulo: número + tipo + zona (máx 24 chars)
+        titulo = f"{i}. {prop.get('tipo', 'Propiedad')} — {prop.get('zona', '')}"
         if len(titulo) > 24:
             titulo = titulo[:21] + "..."
 
