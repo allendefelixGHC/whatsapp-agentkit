@@ -23,6 +23,7 @@ from agent.ghl import (
     buscar_oportunidad_por_contacto,
     mover_oportunidad,
 )
+from agent.email_service import enviar_confirmacion_cliente, enviar_notificacion_vendedor
 
 load_dotenv()
 
@@ -168,18 +169,26 @@ async def ghl_webhook_handler(request: Request):
         movida = await mover_oportunidad(opp_id, "visita_agendada")
         logger.info(f"GHL webhook — oportunidad {opp_id} movida a visita_agendada: {movida}")
 
-        # Enviar WhatsApp de confirmación si tenemos el teléfono
-        if phone and movida:
-            # Normalizar teléfono para Whapi (necesita formato con @s.whatsapp.net o similar)
-            tel_whapi = phone.replace("+", "") + "@s.whatsapp.net"
-            nombre = first_name or "cliente"
-            mensaje = (
-                f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
-                f"Un asesor de Bertero va a estar esperándote. "
-                f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
-            )
-            await proveedor.enviar_mensaje(tel_whapi, mensaje)
-            logger.info(f"WhatsApp de confirmación enviado a {phone}")
+        # Enviar notificaciones si la oportunidad se movió
+        nombre = first_name or "cliente"
+        if movida:
+            # 1. WhatsApp de confirmación al cliente
+            if phone:
+                tel_whapi = phone.replace("+", "") + "@s.whatsapp.net"
+                mensaje = (
+                    f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                    f"Un asesor de Bertero va a estar esperándote. "
+                    f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+                )
+                await proveedor.enviar_mensaje(tel_whapi, mensaje)
+                logger.info(f"WhatsApp de confirmación enviado a {phone}")
+
+            # 2. Email de confirmación al cliente
+            if email:
+                enviar_confirmacion_cliente(email, nombre)
+
+            # 3. Email de notificación al vendedor
+            enviar_notificacion_vendedor(nombre, email or "N/A", phone or "N/A")
 
         return {"status": "ok", "action": "opportunity_moved", "opportunity_id": opp_id}
 
