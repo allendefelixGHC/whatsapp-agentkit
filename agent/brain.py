@@ -70,10 +70,24 @@ NUNCA uses botones en medio de una conversación fluida donde el cliente está d
         "description": """Envía un mensaje de WhatsApp con una lista desplegable de opciones.
 Usá esta herramienta en estos momentos ESPECÍFICOS del flujo de conversación:
 
-1. PRIMER CONTACTO — Cuando el cliente saluda ("Hola", etc.): lista con opciones de consulta (comprar/alquilar/vender/etc.)
+1. PRIMER CONTACTO — Cuando el cliente saluda ("Hola", etc.): lista con opciones de consulta.
+   Sección "¿Qué necesitás?":
+   - Comprar una propiedad (id:op_comprar, descripcion:"Casas, deptos, terrenos y más")
+   - Alquilar una propiedad (id:op_alquilar, descripcion:"Encontrá tu próximo hogar")
+   - Vender mi propiedad (id:op_vender, descripcion:"Te ayudamos a vender rápido")
+   - Poner en alquiler (id:op_poner_alquiler, descripcion:"Gestionamos tu propiedad")
+   - Tasación (id:op_tasacion, descripcion:"Conocé el valor de tu propiedad")
+   - Información general (id:op_info, descripcion:"Horarios, ubicación y más")
 
 2. TIPO DE PROPIEDAD — Después de que el cliente elige comprar o alquilar: lista con tipos de propiedad.
-   Sección "Tipo de propiedad": Casa (id:tipo_casa), Departamento (id:tipo_depto), Terreno/Lote (id:tipo_terreno), Local comercial (id:tipo_local), Galpón (id:tipo_galpon), Oficina (id:tipo_oficina), No tengo preferencia (id:tipo_cualquiera)
+   Sección "Tipo de propiedad":
+   - Casa (id:tipo_casa, descripcion:"Casa independiente")
+   - Departamento (id:tipo_depto, descripcion:"Unidad en edificio")
+   - Terreno/Lote (id:tipo_terreno, descripcion:"Para construir")
+   - Local comercial (id:tipo_local, descripcion:"Para negocio")
+   - Galpón (id:tipo_galpon, descripcion:"Depósito o industria")
+   - Oficina (id:tipo_oficina, descripcion:"Espacio de trabajo")
+   - No tengo preferencia (id:tipo_cualquiera, descripcion:"Ver todo")
 
 3. ZONA — Después de elegir tipo de propiedad: lista con zonas principales.
    Sección "Zonas Centro": Centro (id:zona_centro), Nueva Córdoba (id:zona_nueva_cordoba), Güemes (id:zona_guemes)

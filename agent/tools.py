@@ -496,14 +496,16 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
         if len(titulo) > 24:
             titulo = titulo[:21] + "..."
 
-        # Descripción: precio + dirección (máx 72 chars)
+        # Descripción: precio + dirección + superficie (máx 72 chars)
         desc_parts = []
         if prop.get("precio"):
             desc_parts.append(prop["precio"])
         if prop.get("direccion"):
             desc_parts.append(prop["direccion"])
-        elif prop.get("superficie"):
+        if prop.get("superficie") and prop["superficie"] != "0 m²":
             desc_parts.append(prop["superficie"])
+        if not desc_parts:
+            desc_parts.append(f"ID: {prop.get('id', '?')}")
         descripcion = " | ".join(desc_parts)
         if len(descripcion) > 72:
             descripcion = descripcion[:69] + "..."
