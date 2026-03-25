@@ -172,6 +172,7 @@ async def ghl_webhook_handler(request: Request):
         propiedad_dir = detalles.get("propiedad_direccion", "")
         propiedad_link = detalles.get("propiedad_link", "")
         propiedad_resumen = detalles.get("propiedad_resumen", "")
+        logger.info(f"GHL webhook — propiedad: dir={propiedad_dir}, link={propiedad_link[:50] if propiedad_link else 'N/A'}")
 
         # Mover oportunidad a "Visita agendada"
         movida = await mover_oportunidad(opp_id, "visita_agendada")
