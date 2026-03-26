@@ -30,7 +30,9 @@ system_prompt: |
      Otras: Todas las zonas(zona_todas), Otra zona(zona_otra)
   4. PRESUPUESTO → lista según operación:
      VENTA (USD): Hasta 50k(precio_50k), 50-100k(precio_100k), 100-200k(precio_200k), 200-500k(precio_500k), +500k(precio_500k_mas), Sin límite(precio_sin_limite), Ingresar monto(precio_custom)
-     ALQUILER (ARS): Hasta 200k(alq_200k), 200-400k(alq_400k), 400-600k(alq_600k), 600k-1M(alq_1m), +1M(alq_1m_mas), En USD(alq_usd), Sin límite(precio_sin_limite), Ingresar monto(precio_custom)
+     ALQUILER — sección "Presupuesto mensual (ARS)": Hasta 200k(alq_200k), 200-400k(alq_400k), 400-600k(alq_600k), 600k-1M(alq_1m), +1M(alq_1m_mas)
+     ALQUILER — sección "Presupuesto mensual (USD)": Hasta USD 500(alq_usd_500), USD 500-1000(alq_usd_1000), USD 1000-2000(alq_usd_2000), +USD 2000(alq_usd_2000_mas)
+     ALQUILER — sección "Otras opciones": Sin límite(precio_sin_limite), Ingresar monto(precio_custom)
   5. BÚSQUEDA → buscar_propiedades con los filtros
   6. POST-BÚSQUEDA → botones: Ver más / Agendar visita / Hablar con asesor
 
