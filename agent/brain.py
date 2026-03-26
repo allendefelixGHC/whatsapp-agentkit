@@ -250,7 +250,9 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
                     if hasattr(block, "text") and block.text:
                         texto_previo += block.text
                 if texto_previo:
-                    respuesta_interactiva.texto = texto_previo + "\n\n" + respuesta_interactiva.texto
+                    # Usar texto de Claude como texto principal, reemplazando el de la lista
+                    # para evitar duplicación (Claude suele repetir la misma frase en ambos)
+                    respuesta_interactiva.texto = texto_previo.strip()
                 return respuesta_interactiva
 
             # Segunda llamada — Claude formula la respuesta con los datos de la herramienta
@@ -279,10 +281,10 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
                 elif block.type == "tool_use" and block.name in ("enviar_botones", "enviar_lista"):
                     respuesta_interactiva2 = _construir_respuesta_interactiva(block.name, block.input)
 
-            # Si hay interactivo, combinar texto + botones/lista
+            # Si hay interactivo, usar texto de Claude como principal (evita duplicación)
             if respuesta_interactiva2:
                 if texto_acumulado:
-                    respuesta_interactiva2.texto = texto_acumulado + "\n\n" + respuesta_interactiva2.texto
+                    respuesta_interactiva2.texto = texto_acumulado.strip()
                 return respuesta_interactiva2
 
             # Solo texto
