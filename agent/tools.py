@@ -20,6 +20,11 @@ logger = logging.getLogger("agentkit")
 
 BASE_URL = "https://www.inmobiliariabertero.com.ar"
 
+# Cache de propiedades — se refresca cada 10 minutos
+_propiedades_cache = []
+_propiedades_cache_time = 0
+CACHE_TTL = 600  # 10 minutos
+
 # Mapeo de tipos de propiedad a IDs de Tokko Broker
 TIPOS_PROPIEDAD = {
     "departamento": "2",
@@ -105,19 +110,30 @@ async def buscar_propiedades(
     Usa pagina=2, pagina=3, etc. para ver más resultados.
     """
     try:
-        # Descargar todas las páginas de propiedades
-        todas = []
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            for page in range(1, 5):  # Hasta 4 páginas (80 propiedades)
-                r = await client.get(f"{BASE_URL}/Propiedades", params={"p": str(page)})
-                if r.status_code != 200:
-                    break
-                nuevas = _parsear_listado(r.text)
-                if not nuevas:
-                    break
-                todas.extend(nuevas)
+        global _propiedades_cache, _propiedades_cache_time
+        import time
 
-        logger.info(f"Total propiedades parseadas: {len(todas)}")
+        # Usar cache si está fresco (menos de 10 minutos)
+        ahora = time.time()
+        if _propiedades_cache and (ahora - _propiedades_cache_time) < CACHE_TTL:
+            todas = list(_propiedades_cache)
+            logger.info(f"Propiedades desde cache: {len(todas)}")
+        else:
+            # Descargar todas las páginas de propiedades
+            todas = []
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for page in range(1, 5):  # Hasta 4 páginas (80 propiedades)
+                    r = await client.get(f"{BASE_URL}/Propiedades", params={"p": str(page)})
+                    if r.status_code != 200:
+                        break
+                    nuevas = _parsear_listado(r.text)
+                    if not nuevas:
+                        break
+                    todas.extend(nuevas)
+
+            _propiedades_cache = list(todas)
+            _propiedades_cache_time = ahora
+            logger.info(f"Total propiedades parseadas y cacheadas: {len(todas)}")
 
         # Filtrar por tipo
         if tipo:

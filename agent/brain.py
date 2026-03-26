@@ -30,6 +30,22 @@ logger = logging.getLogger("agentkit")
 # Cliente de Anthropic
 client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+# Cache del system prompt y mensajes de error/fallback (se cargan una sola vez)
+_config_cache = None
+
+
+def _get_config() -> dict:
+    """Lee config de prompts.yaml con cache en memoria."""
+    global _config_cache
+    if _config_cache is None:
+        try:
+            with open("config/prompts.yaml", "r", encoding="utf-8") as f:
+                _config_cache = yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            logger.error("config/prompts.yaml no encontrado")
+            _config_cache = {}
+    return _config_cache
+
 # Herramientas de mensajes interactivos (se agregan a TOOLS_DEFINITION)
 INTERACTIVE_TOOLS = [
     {
@@ -151,30 +167,17 @@ NO uses lista en medio de una conversación fluida donde el cliente ya está dan
 ALL_TOOLS = TOOLS_DEFINITION + INTERACTIVE_TOOLS
 
 
-def cargar_config_prompts() -> dict:
-    """Lee toda la configuración desde config/prompts.yaml."""
-    try:
-        with open("config/prompts.yaml", "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except FileNotFoundError:
-        logger.error("config/prompts.yaml no encontrado")
-        return {}
-
-
 def cargar_system_prompt() -> str:
-    """Lee el system prompt desde config/prompts.yaml."""
-    config = cargar_config_prompts()
-    return config.get("system_prompt", "Eres un asistente útil. Responde en español.")
+    """Lee el system prompt (cacheado en memoria)."""
+    return _get_config().get("system_prompt", "Eres un asistente útil. Responde en español.")
 
 
 def obtener_mensaje_error() -> str:
-    config = cargar_config_prompts()
-    return config.get("error_message", "Lo siento, estoy teniendo problemas técnicos.")
+    return _get_config().get("error_message", "Lo siento, estoy teniendo problemas técnicos.")
 
 
 def obtener_mensaje_fallback() -> str:
-    config = cargar_config_prompts()
-    return config.get("fallback_message", "Disculpa, no entendí tu mensaje.")
+    return _get_config().get("fallback_message", "Disculpa, no entendí tu mensaje.")
 
 
 def _construir_respuesta_interactiva(nombre_tool: str, params: dict) -> Respuesta:
@@ -240,17 +243,18 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
 
     system_prompt = cargar_system_prompt()
 
-    # Construir mensajes para la API
+    # Construir mensajes para la API — limitar historial a últimos 10 mensajes para reducir tokens
     mensajes = []
-    for msg in historial:
+    historial_reciente = historial[-10:] if len(historial) > 10 else historial
+    for msg in historial_reciente:
         mensajes.append({"role": msg["role"], "content": msg["content"]})
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
-        # Primera llamada
+        # Primera llamada — max_tokens bajo porque solo necesita decidir la herramienta o responder directo
         response = await client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=1024,
+            max_tokens=512,
             system=system_prompt,
             messages=mensajes,
             tools=ALL_TOOLS,
