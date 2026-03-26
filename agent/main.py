@@ -10,6 +10,7 @@ Soporta mensajes de texto, botones y listas interactivas.
 import os
 import json
 import logging
+from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -139,7 +140,7 @@ async def ghl_webhook_handler(request: Request):
     """
     try:
         body = await request.json()
-        logger.info(f"Webhook GHL recibido: {json.dumps(body, default=str)[:500]}")
+        logger.info(f"Webhook GHL recibido: {json.dumps(body, default=str)[:2000]}")
 
         # GHL envía datos del contacto y la cita
         # Extraer datos del contacto — puede venir en distintos formatos
@@ -151,7 +152,7 @@ async def ghl_webhook_handler(request: Request):
         # Fecha/hora de la cita (si viene del webhook)
         fecha_cita = body.get("date_time") or body.get("start_time") or body.get("selectedTimezone", {}).get("startTime", "") or ""
 
-        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}")
+        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}")
 
         # Buscar contacto si no tenemos el ID directo
         if not contact_id:
@@ -181,6 +182,20 @@ async def ghl_webhook_handler(request: Request):
         movida = await mover_oportunidad(opp_id, "visita_agendada")
         logger.info(f"GHL webhook — oportunidad {opp_id} movida a visita_agendada: {movida}")
 
+        # Formatear fecha/hora de la cita para las notificaciones
+        fecha_formateada = ""
+        if fecha_cita:
+            try:
+                # GHL manda ISO 8601: "2026-03-26T14:30:00+00:00" o "2026-03-26T14:30:00"
+                dt = datetime.fromisoformat(fecha_cita.replace("Z", "+00:00"))
+                dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+                meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                         "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+                fecha_formateada = f"{dias[dt.weekday()]} {dt.day} de {meses[dt.month - 1]} a las {dt.strftime('%H:%M')} hs"
+            except (ValueError, IndexError) as e:
+                logger.warning(f"No se pudo parsear fecha_cita '{fecha_cita}': {e}")
+                fecha_formateada = fecha_cita  # Usar el valor raw como fallback
+
         # Enviar notificaciones si la oportunidad se movió
         nombre = first_name or "cliente"
         if movida:
@@ -192,8 +207,10 @@ async def ghl_webhook_handler(request: Request):
                 if tel_limpio.startswith("54") and not tel_limpio.startswith("549") and len(tel_limpio) == 12:
                     tel_limpio = "549" + tel_limpio[2:]
                 tel_whapi = tel_limpio + "@s.whatsapp.net"
-                mensaje = (
-                    f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                if fecha_formateada:
+                    mensaje += f"📅 *{fecha_formateada}*\n\n"
+                mensaje += (
                     f"Un asesor de Bertero va a estar esperándote. "
                     f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
                 )
@@ -213,6 +230,7 @@ async def ghl_webhook_handler(request: Request):
                         "propiedad_link": propiedad_link,
                         "propiedad_resumen": propiedad_resumen,
                         "fecha_cita": fecha_cita,
+                        "fecha_formateada": fecha_formateada,
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")
             except Exception as e:
