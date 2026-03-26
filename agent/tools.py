@@ -171,22 +171,57 @@ async def buscar_propiedades(
                 filtradas.append(p)
             todas = filtradas
 
+        filtro_relajado = ""
         if not todas:
-            filtros = []
-            if tipo:
-                filtros.append(f"tipo: {tipo}")
-            if zona and zona.lower() not in ("todas", "todas las zonas"):
-                filtros.append(f"zona: {zona}")
-            if precio_max_num:
-                filtros.append(f"hasta USD {precio_max_num:,}")
-            filtros_str = ", ".join(filtros) if filtros else "los filtros seleccionados"
-            return (
-                f"No encontré propiedades con {filtros_str}.\n\n"
-                f"Sugerencias:\n"
-                f"- Probá ampliando la zona o el presupuesto\n"
-                f"- Revisá todas las opciones en: www.inmobiliariabertero.com.ar/Propiedades\n"
-                f"- O contactanos para que un asesor te ayude a encontrar lo que buscás"
-            )
+            # Auto-relajar filtros: primero quitar zona, después quitar tipo
+            todas_backup = list(_propiedades_cache) if _propiedades_cache else []
+
+            # Intento 1: quitar zona, mantener tipo + operación + precio
+            if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
+                relajadas = list(todas_backup)
+                if tipo:
+                    tipo_lower = tipo.lower().strip()
+                    tipo_map = {"depto": "departamento", "dpto": "departamento", "lote": "terreno", "galpón": "galpon"}
+                    tipo_buscar = tipo_map.get(tipo_lower, tipo_lower)
+                    relajadas = [p for p in relajadas if tipo_buscar in p["tipo"].lower()]
+                if operacion:
+                    op_lower = operacion.lower().strip()
+                    op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
+                    op_buscar = op_map.get(op_lower, op_lower)
+                    relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
+                if precio_min_num or precio_max_num:
+                    relajadas = [p for p in relajadas if p.get("precio_num", 0) > 0
+                                 and (not precio_min_num or p["precio_num"] >= precio_min_num)
+                                 and (not precio_max_num or p["precio_num"] <= precio_max_num)]
+                if relajadas:
+                    todas = relajadas
+                    filtro_relajado = f"No encontré propiedades en {zona}, pero hay opciones en otras zonas:\n\n"
+
+            # Intento 2: quitar zona + tipo, mantener solo operación
+            if not todas and operacion:
+                relajadas = list(todas_backup)
+                op_lower = operacion.lower().strip()
+                op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
+                op_buscar = op_map.get(op_lower, op_lower)
+                relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
+                if relajadas:
+                    todas = relajadas
+                    filtro_relajado = f"No encontré {tipo or 'propiedades'} en {zona or 'esa zona'}, pero mirá lo que tenemos en {operacion}:\n\n"
+
+            if not todas:
+                filtros = []
+                if tipo:
+                    filtros.append(f"tipo: {tipo}")
+                if zona and zona.lower() not in ("todas", "todas las zonas"):
+                    filtros.append(f"zona: {zona}")
+                if precio_max_num:
+                    filtros.append(f"hasta ${precio_max_num:,}")
+                filtros_str = ", ".join(filtros) if filtros else "los filtros seleccionados"
+                return (
+                    f"No encontré propiedades con {filtros_str}.\n\n"
+                    f"Revisá todas las opciones en: www.inmobiliariabertero.com.ar/Propiedades\n"
+                    f"O contactanos para que un asesor te ayude a encontrar lo que buscás."
+                )
 
         total_encontradas = len(todas)
 
@@ -198,8 +233,9 @@ async def buscar_propiedades(
         if not pagina_actual and pagina > 1:
             return f"No hay más propiedades para mostrar. Ya te mostré las {total_encontradas} disponibles."
 
-        # Formatear resultado
-        resultado = f"Encontré {total_encontradas} propiedad(es) en total"
+        # Formatear resultado — incluir aviso si se relajaron filtros
+        resultado = filtro_relajado if filtro_relajado else ""
+        resultado += f"Encontré {total_encontradas} propiedad(es) en total"
         if total_encontradas > limite:
             resultado += f" (mostrando {inicio + 1}-{min(fin, total_encontradas)})"
         resultado += ":\n\n"
