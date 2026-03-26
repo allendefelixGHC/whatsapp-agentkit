@@ -223,24 +223,20 @@ async def buscar_propiedades(
                     todas = relajadas
                     filtro_relajado = f"No encontré con esos filtros exactos, pero mirá lo que tenemos en {operacion}:\n\n"
 
-            # Intento 4: mostrar lo que haya, sin filtros
-            if not todas and todas_backup:
-                todas = list(todas_backup)
-                filtro_relajado = "No encontré propiedades con esos filtros, pero mirá nuestras opciones disponibles:\n\n"
-
+            # Si no hay NADA en la misma operación, NO mostrar otra operación.
+            # Devolver mensaje honesto para que el agente ofrezca agendar llamada o recibir novedades.
             if not todas:
-                filtros = []
-                if tipo:
-                    filtros.append(f"tipo: {tipo}")
-                if zona and zona.lower() not in ("todas", "todas las zonas"):
-                    filtros.append(f"zona: {zona}")
-                if precio_max_num:
-                    filtros.append(f"hasta ${precio_max_num:,}")
-                filtros_str = ", ".join(filtros) if filtros else "los filtros seleccionados"
+                op_texto = operacion or "esa operación"
+                tipo_texto = tipo or "propiedades"
+                zona_texto = zona or "esa zona"
                 return (
-                    f"No encontré propiedades con {filtros_str}.\n\n"
-                    f"Revisá todas las opciones en: www.inmobiliariabertero.com.ar/Propiedades\n"
-                    f"O contactanos para que un asesor te ayude a encontrar lo que buscás."
+                    f"SIN_RESULTADOS_OPERACION: No tenemos {tipo_texto} en {op_texto} disponibles en este momento"
+                    f"{f' en {zona_texto}' if zona else ''}.\n"
+                    f"[INSTRUCCIÓN INTERNA: Ofrecer al cliente DOS opciones con enviar_botones: "
+                    f"1) 'Agendar llamada'(id:btn_agendar_llamada) para hablar con un asesor que pueda ayudarlo, "
+                    f"2) 'Recibir novedades'(id:btn_recibir_novedades) para que le avisemos cuando tengamos "
+                    f"{tipo_texto} en {op_texto}{f' en {zona_texto}' if zona else ''}. "
+                    f"NUNCA mostrar propiedades de otra operación (ej: no mostrar ventas si busca alquiler).]"
                 )
 
         total_encontradas = len(todas)
