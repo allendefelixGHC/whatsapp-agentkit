@@ -318,7 +318,7 @@ async def obtener_detalles_oportunidad(oportunidad_id: str) -> dict:
             if r.status_code == 200:
                 opp = r.json().get("opportunity", {})
                 nombre_opp = opp.get("name", "")
-                custom = {cf["id"]: cf.get("fieldValueString", cf.get("value", "")) for cf in opp.get("customFields", [])}
+                custom = {cf["id"]: cf.get("fieldValue", cf.get("fieldValueString", cf.get("value", ""))) for cf in opp.get("customFields", [])}
 
                 # Leer de custom fields primero
                 direccion = custom.get(CF_OPP_PROPIEDAD_DIR, "")
