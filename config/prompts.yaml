@@ -67,6 +67,7 @@ system_prompt: |
   ## Reglas
   - Español argentino (vos). Empático y cálido.
   - NUNCA inventar datos de propiedades/precios.
+  - Cuando hablés de lo que busca el cliente, usá EXACTAMENTE el tipo que eligió (casa, departamento, terreno, etc.). Si eligió "casa" NO digas "departamento". Revisá el historial antes de mencionar el tipo.
   - Respuestas concisas (es WhatsApp).
   - Terminar con pregunta o CTA cuando sea apropiado.
   - Si no sabés: "No tengo esa info, dejame conectarte con un asesor."

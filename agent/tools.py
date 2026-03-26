@@ -197,7 +197,22 @@ async def buscar_propiedades(
                     todas = relajadas
                     filtro_relajado = f"No encontré propiedades en {zona}, pero hay opciones en otras zonas:\n\n"
 
-            # Intento 2: quitar zona + tipo, mantener solo operación
+            # Intento 2: quitar zona + tipo, mantener operación + precio
+            if not todas and operacion:
+                relajadas = list(todas_backup)
+                op_lower = operacion.lower().strip()
+                op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
+                op_buscar = op_map.get(op_lower, op_lower)
+                relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
+                if precio_min_num or precio_max_num:
+                    relajadas = [p for p in relajadas if p.get("precio_num", 0) > 0
+                                 and (not precio_min_num or p["precio_num"] >= precio_min_num)
+                                 and (not precio_max_num or p["precio_num"] <= precio_max_num)]
+                if relajadas:
+                    todas = relajadas
+                    filtro_relajado = f"No encontré {tipo or 'propiedades'} en {zona or 'esa zona'}, pero mirá lo que tenemos en {operacion}:\n\n"
+
+            # Intento 3: quitar zona + tipo + precio, solo operación
             if not todas and operacion:
                 relajadas = list(todas_backup)
                 op_lower = operacion.lower().strip()
@@ -206,7 +221,12 @@ async def buscar_propiedades(
                 relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré {tipo or 'propiedades'} en {zona or 'esa zona'}, pero mirá lo que tenemos en {operacion}:\n\n"
+                    filtro_relajado = f"No encontré con esos filtros exactos, pero mirá lo que tenemos en {operacion}:\n\n"
+
+            # Intento 4: mostrar lo que haya, sin filtros
+            if not todas and todas_backup:
+                todas = list(todas_backup)
+                filtro_relajado = "No encontré propiedades con esos filtros, pero mirá nuestras opciones disponibles:\n\n"
 
             if not todas:
                 filtros = []
