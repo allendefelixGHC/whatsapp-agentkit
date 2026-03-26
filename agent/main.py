@@ -114,8 +114,13 @@ async def webhook_handler(request: Request):
             contexto += f"\n{msg.texto}"
             respuesta = await generar_respuesta(contexto, historial)
 
-            # Guardar en memoria (siempre como texto para el historial)
-            await guardar_mensaje(msg.telefono, "user", msg.texto)
+            # Guardar en memoria — incluir contexto de botón/lista para no perder info
+            texto_guardar = msg.texto
+            if msg.lista_id:
+                texto_guardar = f"[Seleccionó de lista: {msg.lista_id}] {msg.texto}"
+            elif msg.boton_id:
+                texto_guardar = f"[Botón: {msg.boton_id}] {msg.texto}"
+            await guardar_mensaje(msg.telefono, "user", texto_guardar)
             await guardar_mensaje(msg.telefono, "assistant", respuesta.texto)
 
             # Enviar respuesta según tipo (texto, botones o lista)

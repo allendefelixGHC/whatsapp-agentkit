@@ -199,9 +199,10 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
 
     system_prompt = cargar_system_prompt()
 
-    # Construir mensajes para la API — limitar historial a últimos 6 mensajes (3 intercambios)
+    # Construir mensajes para la API — últimos 16 mensajes (8 intercambios)
+    # para no perder contexto del flujo de calificación (operación, tipo, zona, precio)
     mensajes = []
-    historial_reciente = historial[-6:] if len(historial) > 6 else historial
+    historial_reciente = historial[-16:] if len(historial) > 16 else historial
     for msg in historial_reciente:
         mensajes.append({"role": msg["role"], "content": msg["content"]})
     mensajes.append({"role": "user", "content": mensaje})
@@ -242,8 +243,14 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
                             "content": resultado,
                         })
 
-            # Si hay una respuesta interactiva, retornarla directamente
+            # Si hay una respuesta interactiva, incluir el texto que Claude generó
             if respuesta_interactiva:
+                texto_previo = ""
+                for block in assistant_content:
+                    if hasattr(block, "text") and block.text:
+                        texto_previo += block.text
+                if texto_previo:
+                    respuesta_interactiva.texto = texto_previo + "\n\n" + respuesta_interactiva.texto
                 return respuesta_interactiva
 
             # Segunda llamada — Claude formula la respuesta con los datos de la herramienta
