@@ -408,7 +408,7 @@ async def buscar_contacto_por_telefono(telefono: str) -> str | None:
 def obtener_link_booking(nombre: str = "", email: str = "") -> str:
     """Retorna el link de booking pre-llenado con datos del cliente."""
     from urllib.parse import urlencode
-    params = {"locale": "es-AR"}
+    params = {"locale": "es"}
     if nombre:
         # GHL widget usa first_name y last_name (con guión bajo)
         partes = nombre.strip().split(" ", 1)
