@@ -588,7 +588,7 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
 TOOLS_DEFINITION = [
     {
         "name": "buscar_propiedades",
-        "description": "Busca propiedades disponibles en tiempo real en la web de Inmobiliaria Bertero. Usa esta herramienta SIEMPRE que un cliente pregunte por propiedades, precios, o quiera ver opciones disponibles. Cuando el cliente pide 'ver más opciones', llamá esta herramienta de nuevo con los MISMOS filtros pero pagina=2 (o 3, 4, etc.).",
+        "description": "Busca propiedades en tiempo real. SIEMPRE usar cuando pregunten por propiedades. Para 'ver más', mismos filtros + pagina=2,3,etc.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -622,7 +622,7 @@ TOOLS_DEFINITION = [
                 },
                 "telefono": {
                     "type": "string",
-                    "description": "Teléfono del cliente (viene del contexto interno). SIEMPRE pasalo para guardar los resultados de la búsqueda.",
+                    "description": "Teléfono del cliente (del contexto). SIEMPRE pasarlo.",
                 },
             },
             "required": [],
@@ -630,7 +630,7 @@ TOOLS_DEFINITION = [
     },
     {
         "name": "obtener_detalle_propiedad",
-        "description": "Obtiene información detallada de una propiedad específica por su ID. Usa esta herramienta cuando el cliente quiera más detalles de una propiedad en particular.",
+        "description": "Obtiene detalle completo de una propiedad por ID.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -644,64 +644,27 @@ TOOLS_DEFINITION = [
     },
     {
         "name": "registrar_lead_ghl",
-        "description": """Registra un lead en el CRM (GoHighLevel): crea el contacto y la oportunidad en el pipeline de ventas.
-Usá esta herramienta cuando:
-- El cliente da su nombre, email y muestra interés concreto en una propiedad
-- El cliente quiere agendar una visita
-- El cliente pide hablar con un asesor
-IMPORTANTE: Necesitás nombre + email del cliente para registrarlo. El teléfono viene del webhook.
-El link de booking se pre-llena con nombre y email para que el cliente no los reingrese.
-SIEMPRE incluí propiedad_id, propiedad_link, propiedad_direccion y resumen si el cliente eligió una propiedad. Estos datos se usan en los emails de confirmación.""",
+        "description": "Registra lead en CRM: crea contacto + oportunidad. Necesita nombre+email. Incluir propiedad_id/link/direccion/resumen si hay propiedad elegida.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "telefono": {
-                    "type": "string",
-                    "description": "Teléfono del cliente (viene del contexto interno del chat de WhatsApp)",
-                },
-                "nombre": {
-                    "type": "string",
-                    "description": "Nombre completo del cliente",
-                },
-                "email": {
-                    "type": "string",
-                    "description": "Email del cliente (pedirlo junto con el nombre)",
-                },
-                "operacion": {
-                    "type": "string",
-                    "description": "Qué busca: Comprar, Alquilar, Vender, Poner en alquiler",
-                },
-                "tipo_propiedad": {
-                    "type": "string",
-                    "description": "Tipo: Casa, Departamento, Terreno, Local, Galpon, Oficina",
-                },
-                "zona": {
-                    "type": "string",
-                    "description": "Zona de interés: Nueva Cordoba, Centro, Alberdi, etc.",
-                },
-                "propiedad_id": {
-                    "type": "string",
-                    "description": "ID numérico de la propiedad (ej: 7791415). OBLIGATORIO si el cliente eligió una propiedad.",
-                },
-                "propiedad_link": {
-                    "type": "string",
-                    "description": "URL completa de la propiedad en inmobiliariabertero.com.ar. OBLIGATORIO si el cliente eligió una propiedad.",
-                },
-                "propiedad_direccion": {
-                    "type": "string",
-                    "description": "Dirección de la propiedad (ej: Eufrazio Loza al 1000, Barrio Pueyrredón). OBLIGATORIO si el cliente eligió una propiedad.",
-                },
-                "resumen": {
-                    "type": "string",
-                    "description": "Resumen breve: qué busca, precio, propiedad elegida. OBLIGATORIO. Ej: 'El cliente busca comprar una casa en Barrio Pueyrredón, USD 85.000. Quiere agendar una visita.'",
-                },
+                "telefono": {"type": "string", "description": "Teléfono del cliente (del contexto)"},
+                "nombre": {"type": "string", "description": "Nombre completo del cliente"},
+                "email": {"type": "string", "description": "Email del cliente"},
+                "operacion": {"type": "string", "description": "Comprar, Alquilar, Vender, Poner en alquiler"},
+                "tipo_propiedad": {"type": "string", "description": "Casa, Departamento, Terreno, Local, Galpon, Oficina"},
+                "zona": {"type": "string", "description": "Zona de interés"},
+                "propiedad_id": {"type": "string", "description": "ID de la propiedad elegida"},
+                "propiedad_link": {"type": "string", "description": "URL de la propiedad"},
+                "propiedad_direccion": {"type": "string", "description": "Dirección de la propiedad"},
+                "resumen": {"type": "string", "description": "Resumen breve: qué busca, precio, propiedad elegida"},
             },
             "required": ["telefono", "nombre"],
         },
     },
     {
         "name": "obtener_link_agendar",
-        "description": "Obtiene el link de booking para que el cliente agende una visita a una propiedad. Usá esta herramienta cuando el cliente quiera agendar una visita y ya esté registrado como lead.",
+        "description": "Obtiene link de booking para agendar visita.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -710,19 +673,11 @@ SIEMPRE incluí propiedad_id, propiedad_link, propiedad_direccion y resumen si e
     },
     {
         "name": "obtener_propiedades_para_visita",
-        "description": """Muestra al cliente una lista interactiva con las propiedades que vio en la búsqueda para que elija cuál quiere visitar.
-Usá esta herramienta SIEMPRE que:
-- El cliente haga clic en "Agendar visita" después de una búsqueda
-- El cliente diga que quiere visitar una propiedad pero no especifique cuál
-La lista se arma con las propiedades de la última búsqueda del cliente.
-IMPORTANTE: Pasá el teléfono del cliente (viene del contexto interno).""",
+        "description": "Lista interactiva con propiedades de la última búsqueda para elegir cuál visitar. Usar cuando quiere agendar visita.",
         "input_schema": {
             "type": "object",
             "properties": {
-                "telefono": {
-                    "type": "string",
-                    "description": "Teléfono del cliente (viene del contexto interno del chat)",
-                },
+                "telefono": {"type": "string", "description": "Teléfono del cliente (del contexto)"},
             },
             "required": ["telefono"],
         },

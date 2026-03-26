@@ -30,6 +30,9 @@ logger = logging.getLogger("agentkit")
 # Cliente de Anthropic
 client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+# Modelo — Haiku 3.5 para costos bajos en producción, Sonnet para desarrollo/testing
+MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
+
 # Cache del system prompt y mensajes de error/fallback (se cargan una sola vez)
 _config_cache = None
 
@@ -50,14 +53,7 @@ def _get_config() -> dict:
 INTERACTIVE_TOOLS = [
     {
         "name": "enviar_botones",
-        "description": """Envía un mensaje de WhatsApp con botones de respuesta rápida (máximo 3 botones).
-Usá esta herramienta en estos momentos:
-- Después de mostrar propiedades: botones "Ver más", "Agendar visita", "Hablar con asesor"
-- Después de dar detalles de una propiedad: "Quiero visitarla", "Ver más opciones", "Hablar con asesor"
-- Para confirmar una cita: "Confirmar", "Cambiar horario"
-- Cuando el cliente pide hablar con alguien fuera de horario: "Dejar mis datos", "Ver propiedades"
-NUNCA uses botones para el primer contacto (usá la lista de opciones en su lugar).
-NUNCA uses botones en medio de una conversación fluida donde el cliente está dando detalles.""",
+        "description": "Envía mensaje con botones de respuesta rápida (máx 3). Usar después de mostrar propiedades o detalles. NO usar en primer contacto ni en conversación fluida.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -83,47 +79,7 @@ NUNCA uses botones en medio de una conversación fluida donde el cliente está d
     },
     {
         "name": "enviar_lista",
-        "description": """Envía un mensaje de WhatsApp con una lista desplegable de opciones.
-Usá esta herramienta en estos momentos ESPECÍFICOS del flujo de conversación:
-
-1. PRIMER CONTACTO — Cuando el cliente saluda ("Hola", etc.): lista con opciones de consulta.
-   Sección "¿Qué necesitás?":
-   - Comprar una propiedad (id:op_comprar, descripcion:"Casas, deptos, terrenos y más")
-   - Alquilar una propiedad (id:op_alquilar, descripcion:"Encontrá tu próximo hogar")
-   - Vender mi propiedad (id:op_vender, descripcion:"Te ayudamos a vender rápido")
-   - Poner en alquiler (id:op_poner_alquiler, descripcion:"Gestionamos tu propiedad")
-   - Tasación (id:op_tasacion, descripcion:"Conocé el valor de tu propiedad")
-   - Información general (id:op_info, descripcion:"Horarios, ubicación y más")
-
-2. TIPO DE PROPIEDAD — Después de que el cliente elige comprar o alquilar: lista con tipos de propiedad.
-   Sección "Tipo de propiedad":
-   - 🏡 Casa (id:tipo_casa, descripcion:"Casa independiente")
-   - 🏢 Departamento (id:tipo_depto, descripcion:"Unidad en edificio")
-   - 🌿 Terreno/Lote (id:tipo_terreno, descripcion:"Para construir")
-   - 🏪 Local comercial (id:tipo_local, descripcion:"Para negocio")
-   - 🏭 Galpón (id:tipo_galpon, descripcion:"Depósito o industria")
-   - 🏛️ Oficina (id:tipo_oficina, descripcion:"Espacio de trabajo")
-   - 📋 Sin preferencia (id:tipo_cualquiera, descripcion:"Ver todo")
-
-3. ZONA — Después de elegir tipo de propiedad: lista con zonas principales.
-   Sección "Zonas Centro": Centro (id:zona_centro), Nueva Córdoba (id:zona_nueva_cordoba), Güemes (id:zona_guemes)
-   Sección "Zonas Norte": Alberdi (id:zona_alberdi), Alta Córdoba (id:zona_alta_cordoba), Bajo Palermo (id:zona_bajo_palermo)
-   Sección "Sierras": Villa Carlos Paz (id:zona_carlos_paz), Unquillo (id:zona_unquillo), Río Ceballos (id:zona_rio_ceballos)
-   Sección "Otras": Todas las zonas (id:zona_todas), Otra zona (id:zona_otra)
-
-4. PRESUPUESTO — Después de elegir zona: lista con rangos de precio. Los rangos DEPENDEN de la operación:
-
-   Si el cliente quiere COMPRAR (venta): rangos en USD
-   Sección "Presupuesto (USD)": Hasta USD 50.000 (id:precio_50k), USD 50.000 - 100.000 (id:precio_100k), USD 100.000 - 200.000 (id:precio_200k), USD 200.000 - 500.000 (id:precio_500k), Más de USD 500.000 (id:precio_500k_mas), Sin límite de presupuesto (id:precio_sin_limite), Ingresar monto (id:precio_custom)
-
-   Si el cliente quiere ALQUILAR: rangos en PESOS argentinos + opción en USD
-   Sección "Presupuesto mensual (ARS)": Hasta $200.000/mes (id:alq_200k), $200.000 - $400.000/mes (id:alq_400k), $400.000 - $600.000/mes (id:alq_600k), $600.000 - $1.000.000/mes (id:alq_1m), Más de $1.000.000/mes (id:alq_1m_mas)
-   Sección "Otras opciones": En dólares (USD) (id:alq_usd), Sin límite (id:precio_sin_limite), Ingresar monto (id:precio_custom)
-
-Si el cliente elige "Ingresar monto específico", respondé con texto pidiendo que escriba el monto.
-Si el cliente elige "Otra zona", respondé con texto pidiendo que escriba la zona.
-Si elige "Todas las zonas" o "Sin límite de presupuesto", buscá sin ese filtro.
-NO uses lista en medio de una conversación fluida donde el cliente ya está dando detalles con texto libre.""",
+        "description": "Envía mensaje con lista desplegable de opciones. Usar en el flujo de calificación: 1) Saludo→opciones de consulta, 2) Tipo de propiedad, 3) Zona, 4) Presupuesto. Ver system prompt para IDs y secciones exactas. NO usar en conversación fluida con texto libre.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -243,9 +199,9 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
 
     system_prompt = cargar_system_prompt()
 
-    # Construir mensajes para la API — limitar historial a últimos 10 mensajes para reducir tokens
+    # Construir mensajes para la API — limitar historial a últimos 6 mensajes (3 intercambios)
     mensajes = []
-    historial_reciente = historial[-10:] if len(historial) > 10 else historial
+    historial_reciente = historial[-6:] if len(historial) > 6 else historial
     for msg in historial_reciente:
         mensajes.append({"role": msg["role"], "content": msg["content"]})
     mensajes.append({"role": "user", "content": mensaje})
@@ -253,7 +209,7 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
     try:
         # Primera llamada — necesita espacio suficiente para tool_use con listas interactivas (muchas filas)
         response = await client.messages.create(
-            model="claude-sonnet-4-6",
+            model=MODEL,
             max_tokens=1024,
             system=system_prompt,
             messages=mensajes,
@@ -290,16 +246,17 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
             if respuesta_interactiva:
                 return respuesta_interactiva
 
-            # Si no, segunda llamada para que Claude formule la respuesta con datos
+            # Segunda llamada — Claude formula la respuesta con los datos de la herramienta
+            # Incluimos tools solo para enviar_botones/enviar_lista (puede querer agregar botones post-búsqueda)
             mensajes.append({"role": "assistant", "content": assistant_content})
             mensajes.append({"role": "user", "content": tool_results})
 
             response2 = await client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1024,
+                model=MODEL,
+                max_tokens=768,
                 system=system_prompt,
                 messages=mensajes,
-                tools=ALL_TOOLS,
+                tools=INTERACTIVE_TOOLS,
             )
 
             logger.info(f"Respuesta final ({response2.usage.input_tokens} in / {response2.usage.output_tokens} out) — stop: {response2.stop_reason}")
