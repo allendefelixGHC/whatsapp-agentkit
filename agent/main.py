@@ -148,9 +148,16 @@ async def ghl_webhook_handler(request: Request):
         email = body.get("email") or body.get("contact", {}).get("email") or ""
         phone = body.get("phone") or body.get("contact", {}).get("phone") or ""
         first_name = body.get("first_name") or body.get("contact", {}).get("firstName") or ""
-        appointment_status = body.get("appointment_status") or body.get("status") or ""
-        # Fecha/hora de la cita (si viene del webhook)
-        fecha_cita = body.get("date_time") or body.get("start_time") or body.get("selectedTimezone", {}).get("startTime", "") or ""
+        appointment_status = body.get("appointment_status") or body.get("status") or body.get("calendar", {}).get("appoinmentStatus", "") or ""
+        # Fecha/hora de la cita — GHL la pone en calendar.startTime
+        calendar = body.get("calendar", {})
+        fecha_cita = (
+            body.get("date_time")
+            or body.get("start_time")
+            or calendar.get("startTime", "")
+            or body.get("selectedTimezone", {}).get("startTime", "")
+            or ""
+        )
 
         logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}")
 
