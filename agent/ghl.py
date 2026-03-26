@@ -405,7 +405,7 @@ async def buscar_contacto_por_telefono(telefono: str) -> str | None:
         return None
 
 
-def obtener_link_booking(nombre: str = "", email: str = "") -> str:
+def obtener_link_booking(nombre: str = "", email: str = "", telefono: str = "") -> str:
     """Retorna el link de booking pre-llenado con datos del cliente."""
     from urllib.parse import urlencode
     params = {"locale": "es"}
@@ -417,6 +417,9 @@ def obtener_link_booking(nombre: str = "", email: str = "") -> str:
             params["last_name"] = partes[1]
     if email:
         params["email"] = email
-    # Nota: NO pasamos phone — GHL widget no lo maneja bien
+    if telefono:
+        # Limpiar el teléfono: solo dígitos, sin prefijo whatsapp
+        tel = telefono.replace("whatsapp:", "").replace("+", "").replace(" ", "").replace("-", "")
+        params["phone"] = f"+{tel}"
     query = urlencode(params)
     return f"{BOOKING_LINK}?{query}"

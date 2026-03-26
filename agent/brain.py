@@ -251,10 +251,10 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
-        # Primera llamada — max_tokens bajo porque solo necesita decidir la herramienta o responder directo
+        # Primera llamada — necesita espacio suficiente para tool_use con listas interactivas (muchas filas)
         response = await client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=512,
+            max_tokens=1024,
             system=system_prompt,
             messages=mensajes,
             tools=ALL_TOOLS,

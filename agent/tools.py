@@ -455,7 +455,7 @@ async def registrar_lead_ghl(
         zona=zona,
     )
 
-    booking_link = obtener_link_booking(nombre=nombre, email=email)
+    booking_link = obtener_link_booking(nombre=nombre, email=email, telefono=telefono)
 
     if contacto.get("error") and not contacto.get("id"):
         vendedor = contacto.get("vendedor", "un asesor")
