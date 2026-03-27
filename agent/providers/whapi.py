@@ -124,7 +124,7 @@ class ProveedorWhapi(ProveedorWhatsApp):
         if not self.token:
             logger.warning("WHAPI_TOKEN no configurado — mensaje no enviado")
             return False
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.post(
                 f"{API_BASE}/messages/text",
                 json={"to": telefono, "body": mensaje},
