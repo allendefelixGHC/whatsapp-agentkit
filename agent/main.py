@@ -165,18 +165,32 @@ async def ghl_webhook_handler(request: Request):
         )
 
         # Link de Zoom/Meet — GHL lo genera al crear la cita
-        zoom_link = (
-            body.get("address")
-            or body.get("meetingUrl")
-            or body.get("location", {}).get("meetingUrl", "") if isinstance(body.get("location"), dict) else ""
-            or calendar.get("meetingUrl", "")
-            or calendar.get("address", "")
-            or ""
-        )
-        # Validar que sea realmente un link de videoconferencia
-        if zoom_link and not any(domain in zoom_link.lower() for domain in ["zoom.us", "meet.google", "teams.microsoft"]):
-            zoom_link = ""
+        # Buscar en todos los campos posibles donde GHL puede poner el link
+        zoom_candidates = [
+            body.get("address", ""),
+            body.get("meetingUrl", ""),
+            body.get("meeting_location", ""),
+            calendar.get("meetingUrl", ""),
+            calendar.get("address", ""),
+            calendar.get("meeting_location", ""),
+        ]
+        # Si location es dict, buscar dentro; si es string, usarlo directo
+        location = body.get("location", "")
+        if isinstance(location, dict):
+            zoom_candidates.append(location.get("meetingUrl", ""))
+            zoom_candidates.append(location.get("address", ""))
+        elif isinstance(location, str):
+            zoom_candidates.append(location)
 
+        # Encontrar el primer candidato que sea un link de videoconferencia
+        zoom_link = ""
+        for candidate in zoom_candidates:
+            if candidate and any(domain in candidate.lower() for domain in ["zoom.us", "meet.google", "teams.microsoft"]):
+                zoom_link = candidate
+                break
+
+        # Log completo del body para debug (ver qué campos manda GHL)
+        logger.info(f"GHL webhook FULL BODY: {json.dumps(body, default=str)}")
         logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}, zoom_link: {zoom_link}")
 
         # Buscar contacto si no tenemos el ID directo
