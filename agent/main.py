@@ -164,7 +164,20 @@ async def ghl_webhook_handler(request: Request):
             or ""
         )
 
-        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}")
+        # Link de Zoom/Meet — GHL lo genera al crear la cita
+        zoom_link = (
+            body.get("address")
+            or body.get("meetingUrl")
+            or body.get("location", {}).get("meetingUrl", "") if isinstance(body.get("location"), dict) else ""
+            or calendar.get("meetingUrl", "")
+            or calendar.get("address", "")
+            or ""
+        )
+        # Validar que sea realmente un link de videoconferencia
+        if zoom_link and not any(domain in zoom_link.lower() for domain in ["zoom.us", "meet.google", "teams.microsoft"]):
+            zoom_link = ""
+
+        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}, zoom_link: {zoom_link}")
 
         # Buscar contacto si no tenemos el ID directo
         if not contact_id:
@@ -219,13 +232,25 @@ async def ghl_webhook_handler(request: Request):
                 if tel_limpio.startswith("54") and not tel_limpio.startswith("549") and len(tel_limpio) == 12:
                     tel_limpio = "549" + tel_limpio[2:]
                 tel_whapi = tel_limpio + "@s.whatsapp.net"
-                mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                # Personalizar mensaje según si hay propiedad o es consulta general
+                if propiedad_dir:
+                    mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                else:
+                    mensaje = f"✅ *¡Tu llamada fue confirmada, {nombre}!*\n\n"
                 if fecha_formateada:
                     mensaje += f"📅 *{fecha_formateada}*\n\n"
-                mensaje += (
-                    f"Un asesor de Bertero va a estar esperándote. "
-                    f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
-                )
+                if zoom_link:
+                    mensaje += f"📹 *Link de la reunión:*\n{zoom_link}\n\n"
+                if propiedad_dir:
+                    mensaje += (
+                        f"Un asesor de Bertero va a estar esperándote. "
+                        f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+                    )
+                else:
+                    mensaje += (
+                        f"Un asesor de Bertero va a conversar con vos sobre tu búsqueda. "
+                        f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+                    )
                 await proveedor.enviar_mensaje(tel_whapi, mensaje)
                 logger.info(f"WhatsApp de confirmación enviado a {phone}")
 
@@ -243,6 +268,8 @@ async def ghl_webhook_handler(request: Request):
                         "propiedad_resumen": propiedad_resumen,
                         "fecha_cita": fecha_cita,
                         "fecha_formateada": fecha_formateada,
+                        "zoom_link": zoom_link,
+                        "tipo_cita": "visita" if propiedad_dir else "consulta",
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")
             except Exception as e:
