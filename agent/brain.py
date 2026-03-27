@@ -201,10 +201,15 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
 
     # Construir mensajes para la API — últimos 16 mensajes (8 intercambios)
     # para no perder contexto del flujo de calificación (operación, tipo, zona, precio)
+    # Recortar mensajes muy largos (listados de propiedades) para no volar el contexto
+    MAX_MSG_CHARS = 1500
     mensajes = []
     historial_reciente = historial[-16:] if len(historial) > 16 else historial
     for msg in historial_reciente:
-        mensajes.append({"role": msg["role"], "content": msg["content"]})
+        content = msg["content"]
+        if len(content) > MAX_MSG_CHARS:
+            content = content[:MAX_MSG_CHARS] + "\n[... mensaje recortado por longitud]"
+        mensajes.append({"role": msg["role"], "content": content})
     mensajes.append({"role": "user", "content": mensaje})
 
     try:
@@ -301,5 +306,6 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
         return Respuesta(tipo="texto", texto=obtener_mensaje_error())
 
     except Exception as e:
-        logger.error(f"Error Claude API: {e}")
+        import traceback
+        logger.error(f"Error Claude API: {e}\n{traceback.format_exc()}")
         return Respuesta(tipo="texto", texto=obtener_mensaje_error())
