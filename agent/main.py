@@ -240,33 +240,37 @@ async def ghl_webhook_handler(request: Request):
         if movida:
             # 1. WhatsApp de confirmación al cliente
             if phone:
-                tel_limpio = phone.replace("+", "")
-                # Fix teléfono argentino: GHL guarda 543517575244 (sin 9)
-                # pero WhatsApp necesita 5493517575244 (con 9 móvil)
-                if tel_limpio.startswith("54") and not tel_limpio.startswith("549") and len(tel_limpio) == 12:
-                    tel_limpio = "549" + tel_limpio[2:]
-                tel_whapi = tel_limpio + "@s.whatsapp.net"
-                # Personalizar mensaje según si hay propiedad o es consulta general
-                if propiedad_dir:
-                    mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
-                else:
-                    mensaje = f"✅ *¡Tu llamada fue confirmada, {nombre}!*\n\n"
-                if fecha_formateada:
-                    mensaje += f"📅 *{fecha_formateada}*\n\n"
-                if zoom_link:
-                    mensaje += f"📹 *Link de la reunión:*\n{zoom_link}\n\n"
-                if propiedad_dir:
-                    mensaje += (
-                        f"Un asesor de Bertero va a estar esperándote. "
-                        f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
-                    )
-                else:
-                    mensaje += (
-                        f"Un asesor de Bertero va a conversar con vos sobre tu búsqueda. "
-                        f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
-                    )
-                await proveedor.enviar_mensaje(tel_whapi, mensaje)
-                logger.info(f"WhatsApp de confirmación enviado a {phone}")
+                try:
+                    tel_limpio = phone.replace("+", "")
+                    # Fix teléfono argentino: GHL guarda 543517575244 (sin 9)
+                    # pero WhatsApp necesita 5493517575244 (con 9 móvil)
+                    if tel_limpio.startswith("54") and not tel_limpio.startswith("549") and len(tel_limpio) == 12:
+                        tel_limpio = "549" + tel_limpio[2:]
+                    tel_whapi = tel_limpio + "@s.whatsapp.net"
+                    # Personalizar mensaje según si hay propiedad o es consulta general
+                    if propiedad_dir:
+                        mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
+                    else:
+                        mensaje = f"✅ *¡Tu llamada fue confirmada, {nombre}!*\n\n"
+                    if fecha_formateada:
+                        mensaje += f"📅 *{fecha_formateada}*\n\n"
+                    if zoom_link:
+                        mensaje += f"📹 *Link de la reunión:*\n{zoom_link}\n\n"
+                    if propiedad_dir:
+                        mensaje += (
+                            f"Un asesor de Bertero va a estar esperándote. "
+                            f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+                        )
+                    else:
+                        mensaje += (
+                            f"Un asesor de Bertero va a conversar con vos sobre tu búsqueda. "
+                            f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+                        )
+                    await proveedor.enviar_mensaje(tel_whapi, mensaje)
+                    logger.info(f"WhatsApp de confirmación enviado a {phone}")
+                except Exception as e:
+                    import traceback
+                    logger.error(f"Error enviando WhatsApp de confirmación a {phone}: {e}\n{traceback.format_exc()}")
 
             # 2 y 3. Emails via n8n (cliente + vendedor)
             try:
@@ -287,10 +291,12 @@ async def ghl_webhook_handler(request: Request):
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")
             except Exception as e:
-                logger.error(f"Error enviando emails via n8n: {e}")
+                import traceback
+                logger.error(f"Error enviando emails via n8n: {e}\n{traceback.format_exc()}")
 
         return {"status": "ok", "action": "opportunity_moved", "opportunity_id": opp_id}
 
     except Exception as e:
-        logger.error(f"Error en webhook GHL: {e}")
+        import traceback
+        logger.error(f"Error en webhook GHL: {e}\n{traceback.format_exc()}")
         return {"status": "error", "detail": str(e)}
