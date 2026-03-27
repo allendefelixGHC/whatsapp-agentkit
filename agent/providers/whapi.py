@@ -85,6 +85,17 @@ class ProveedorWhapi(ProveedorWhatsApp):
                     lista_id = reply.get("id", "")
                     texto = reply.get("title", "") or texto
 
+            # Mensajes con link preview (ej: links de Zonaprop, Argenprop, etc.)
+            if not texto and msg_type == "link_preview":
+                lp = msg.get("link_preview", {})
+                # El texto del usuario suele estar en body o caption
+                texto = lp.get("body", "") or lp.get("caption", "") or lp.get("title", "")
+                # Si hay URL pero no texto, usar la URL como texto
+                if not texto:
+                    texto = lp.get("url", "") or lp.get("link", "")
+                if texto:
+                    logger.info(f"Link preview detectado: {texto[:100]}")
+
             # Si aún no hay texto, intentar con body directo del mensaje
             if not texto:
                 texto = msg.get("body", "")
