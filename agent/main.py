@@ -106,7 +106,7 @@ async def webhook_handler(request: Request):
             if es_cliente_nuevo:
                 contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía, mencioná que sos asistente virtual de Bertero, y enviale la lista interactiva de opciones.]"
             else:
-                contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. NO te presentes de nuevo, NO digas 'Bienvenido a Bertero', NO repitas la intro. Saludalo directamente por su nombre y preguntale en qué lo podés ayudar. Si ya dijo qué busca, avanzá directo al siguiente paso del flujo.]"
+                contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. REGLAS ESTRICTAS: 1) NUNCA presentarte como Lucía ni decir 'Soy Lucía' ni 'asistente virtual de Bertero' — el cliente ya te conoce. 2) Saludalo directamente y enviale la lista interactiva de opciones (paso 1 del flujo) para que elija qué necesita. 3) Si ya dijo qué busca en este mensaje, avanzá directo al siguiente paso del flujo sin re-presentarte.]"
             if msg.lista_id:
                 contexto += f"\n[El cliente seleccionó de una lista interactiva. ID seleccionado: {msg.lista_id}]"
             elif msg.boton_id:
