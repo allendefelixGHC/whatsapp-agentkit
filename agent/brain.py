@@ -11,6 +11,8 @@ import os
 import json
 import yaml
 import logging
+import base64
+import httpx
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 
@@ -189,10 +191,36 @@ async def _ejecutar_herramienta(nombre: str, parametros: dict) -> str | Respuest
         return f"Herramienta desconocida: {nombre}"
 
 
-async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
+async def _descargar_imagen_base64(url: str, mime: str = "image/jpeg") -> tuple[str, str] | None:
+    """Descarga una imagen desde Whapi y la convierte a base64 para Claude Vision."""
+    if not url:
+        return None
+    try:
+        token = os.getenv("WHAPI_TOKEN", "")
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(url, headers=headers, follow_redirects=True)
+            if r.status_code == 200:
+                img_b64 = base64.b64encode(r.content).decode("utf-8")
+                # Detectar mime del content-type si no lo tenemos
+                content_type = r.headers.get("content-type", mime)
+                if "/" in content_type:
+                    mime = content_type.split(";")[0].strip()
+                logger.info(f"Imagen descargada: {len(r.content)} bytes, mime={mime}")
+                return img_b64, mime
+            else:
+                logger.error(f"Error descargando imagen: {r.status_code}")
+                return None
+    except Exception as e:
+        logger.error(f"Error descargando imagen: {e}")
+        return None
+
+
+async def generar_respuesta(mensaje: str, historial: list[dict], imagen_url: str = "", imagen_mime: str = "") -> Respuesta:
     """
     Genera una respuesta usando Claude API con tool_use.
     Retorna un objeto Respuesta que puede ser texto, botones o lista.
+    Soporta imágenes via Claude Vision.
     """
     if not mensaje or len(mensaje.strip()) < 2:
         return Respuesta(tipo="texto", texto=obtener_mensaje_fallback())
@@ -210,7 +238,34 @@ async def generar_respuesta(mensaje: str, historial: list[dict]) -> Respuesta:
         if len(content) > MAX_MSG_CHARS:
             content = content[:MAX_MSG_CHARS] + "\n[... mensaje recortado por longitud]"
         mensajes.append({"role": msg["role"], "content": content})
-    mensajes.append({"role": "user", "content": mensaje})
+
+    # Si hay imagen, construir mensaje multimodal (imagen + texto)
+    if imagen_url:
+        img_data = await _descargar_imagen_base64(imagen_url, imagen_mime)
+        if img_data:
+            img_b64, mime = img_data
+            mensajes.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": mime,
+                            "data": img_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": mensaje,
+                    },
+                ],
+            })
+        else:
+            # Si no se pudo descargar la imagen, enviar solo texto con aviso
+            mensajes.append({"role": "user", "content": mensaje + "\n[No se pudo procesar la imagen enviada]"})
+    else:
+        mensajes.append({"role": "user", "content": mensaje})
 
     try:
         # Primera llamada — necesita espacio suficiente para tool_use con listas interactivas (muchas filas)

@@ -28,7 +28,7 @@ class ProveedorWhapi(ProveedorWhatsApp):
         }
 
     async def parsear_webhook(self, request: Request) -> list[MensajeEntrante]:
-        """Parsea el payload de Whapi.cloud incluyendo respuestas de botones/listas."""
+        """Parsea el payload de Whapi.cloud incluyendo respuestas de botones/listas e imágenes."""
         body = await request.json()
         mensajes = []
         for msg in body.get("messages", []):
@@ -43,7 +43,20 @@ class ProveedorWhapi(ProveedorWhatsApp):
 
             boton_id = ""
             lista_id = ""
+            imagen_url = ""
+            imagen_mime = ""
             msg_type = msg.get("type", "")
+
+            # Mensajes con imagen (fotos enviadas por el cliente)
+            if msg_type == "image":
+                img = msg.get("image", {})
+                imagen_url = img.get("link", "") or img.get("url", "")
+                imagen_mime = img.get("mime_type", "image/jpeg")
+                # El caption de la imagen es el texto que acompaña la foto
+                texto = img.get("caption", "") or texto
+                if not texto:
+                    texto = "[Imagen enviada]"
+                logger.info(f"Imagen recibida: mime={imagen_mime}, url={imagen_url[:80] if imagen_url else 'N/A'}")
 
             # Detectar respuestas interactivas
             # Whapi envía respuestas de botón/lista con type="reply" y campo "reply"
@@ -111,6 +124,8 @@ class ProveedorWhapi(ProveedorWhatsApp):
                 es_propio=msg.get("from_me", False),
                 boton_id=boton_id,
                 lista_id=lista_id,
+                imagen_url=imagen_url,
+                imagen_mime=imagen_mime,
             ))
         return mensajes
 

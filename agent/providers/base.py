@@ -20,6 +20,8 @@ class MensajeEntrante:
     es_propio: bool     # True si lo envió el agente (se ignora)
     boton_id: str = ""  # ID del botón clickeado (si aplica)
     lista_id: str = ""  # ID de la opción de lista seleccionada (si aplica)
+    imagen_url: str = ""  # URL de la imagen (si el mensaje es una foto)
+    imagen_mime: str = ""  # MIME type de la imagen (image/jpeg, image/png, etc.)
 
 
 @dataclass
