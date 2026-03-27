@@ -25,6 +25,10 @@ from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial, limpiar_historial
 from agent.providers.base import Respuesta
 
+# --- Fix encoding Windows ---
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
 # --- Colores para terminal ---
 GREEN = "\033[92m"
 RED = "\033[91m"

@@ -479,6 +479,37 @@ def _parsear_detalle(html: str, link: str) -> str:
     return resultado
 
 
+async def _notificar_error_crm(
+    error: str, nombre: str, email: str, telefono: str,
+    operacion: str = "", tipo_propiedad: str = "", zona: str = "", resumen: str = "",
+):
+    """Envía email al admin cuando falla el registro en GHL para que lo haga manualmente."""
+    try:
+        n8n_url = os.getenv("N8N_ERROR_WEBHOOK", os.getenv("N8N_EMAIL_WEBHOOK", ""))
+        admin_email = os.getenv("ADMIN_EMAIL", os.getenv("VENDEDOR_EMAIL", "hola@propulsar.ai"))
+        if not n8n_url:
+            logger.warning("N8N_EMAIL_WEBHOOK no configurado — no se puede notificar error CRM")
+            return
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(n8n_url, json={
+                "nombre": nombre,
+                "email_cliente": email,
+                "email_vendedor": admin_email,
+                "telefono": telefono,
+                "propiedad_direccion": "",
+                "propiedad_link": "",
+                "propiedad_resumen": f"ERROR CRM — Registrar manualmente\n\nError: {error}\nOperación: {operacion}\nTipo: {tipo_propiedad}\nZona: {zona}\nResumen: {resumen}",
+                "fecha_cita": "",
+                "fecha_formateada": "",
+                "zoom_link": "",
+                "tipo_cita": "consulta",
+            })
+            logger.info(f"Notificación error CRM enviada al admin: {r.status_code}")
+    except Exception as e:
+        logger.error(f"Error enviando notificación de error CRM: {e}")
+
+
 async def registrar_lead_ghl(
     telefono: str,
     nombre: str,
@@ -511,8 +542,17 @@ async def registrar_lead_ghl(
 
     if contacto.get("error") and not contacto.get("id"):
         vendedor = contacto.get("vendedor", "un asesor")
+        # Notificar al admin por email para registro manual
+        await _notificar_error_crm(
+            error=contacto.get("error", "Error desconocido"),
+            nombre=nombre, email=email, telefono=telefono,
+            operacion=operacion, tipo_propiedad=tipo_propiedad, zona=zona,
+            resumen=resumen,
+        )
         return (
-            f"No pude registrar el lead en el CRM pero el vendedor asignado es {vendedor}.\n"
+            f"IMPORTANTE: El CRM tuvo un error pero ya se notificó al equipo para registrarlo manualmente.\n"
+            f"Vendedor asignado: {vendedor}.\n"
+            f"Confirmá al cliente que sus datos fueron recibidos y que lo van a contactar.\n"
             f"Link de booking para agendar visita: {booking_link}\n"
         )
 

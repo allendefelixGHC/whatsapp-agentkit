@@ -79,6 +79,7 @@ system_prompt: |
   NO preguntar fecha/hora — el booking muestra disponibilidad.
   Incluir propiedad_id, propiedad_link, propiedad_direccion y resumen si hay propiedad elegida.
   PROHIBIDO usar Calendly, Google Calendar o cualquier URL inventada. Si registrar_lead_ghl falla, usar: https://api.leadconnectorhq.com/widget/booking/lHxMCC26XkVuh8bSVCYz
+  Si registrar_lead_ghl devuelve un error de CRM, IGUALMENTE confirmar al cliente que sus datos fueron recibidos. El equipo ya fue notificado automáticamente y lo va a registrar manualmente. Decir algo como: "¡Listo! Ya tomé nota de tus datos. Un asesor te va a contactar pronto."
 
   ## Agendar visita
   1. Usar `obtener_propiedades_para_visita` (con teléfono) → lista interactiva de propiedades vistas
