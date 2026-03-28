@@ -293,6 +293,15 @@ async def buscar_propiedades(
             # Sin teléfono, guardar con key genérica (fallback)
             guardar_propiedades("_last", pagina_actual)
 
+        # Programar follow-up (FU-01): cliente vio propiedades, si no agenda en 24h se le escribe
+        if telefono and pagina_actual:
+            try:
+                from agent.followup import programar_followup
+                props_para_followup = [{"direccion": p.get("direccion", ""), "link": p.get("link", "")} for p in pagina_actual[:5]]
+                await programar_followup(telefono, props_para_followup)
+            except Exception as e:
+                logger.error(f"Error programando follow-up para {telefono}: {e}")
+
         return resultado
 
     except httpx.TimeoutException:
@@ -669,6 +678,13 @@ async def registrar_lead_ghl(
     else:
         logger.warning("VENDEDOR_WHATSAPP no configurado — notificacion de lead al vendedor omitida")
 
+    # Cancelar follow-up pendiente (FU-01): el cliente agendo, no necesita follow-up automatico
+    try:
+        from agent.followup import cancelar_followup
+        await cancelar_followup(telefono)
+    except Exception as e:
+        logger.error(f"Error cancelando follow-up para {telefono}: {e}")
+
     return resultado
 
 
@@ -799,6 +815,13 @@ async def solicitar_humano(telefono: str, resumen: str) -> str:
             logger.error(f"Error enviando notificacion takeover a vendedor: {e}")
     else:
         logger.warning("VENDEDOR_WHATSAPP no configurado — notificacion WhatsApp omitida")
+
+    # Cancelar follow-up pendiente (FU-01): handoff a humano, no necesita follow-up automatico
+    try:
+        from agent.followup import cancelar_followup
+        await cancelar_followup(telefono)
+    except Exception as e:
+        logger.error(f"Error cancelando follow-up para {telefono}: {e}")
 
     return (
         "Estado cambiado a 'humano'. Vendedor notificado por WhatsApp. "

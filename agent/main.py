@@ -140,6 +140,25 @@ async def admin_refresh_properties(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/admin/process-followups")
+async def admin_process_followups(request: Request):
+    """Procesa follow-ups pendientes cuyo scheduled_at ya paso.
+    Llamado por n8n Schedule Trigger cada hora (plan 06-03)."""
+    # Auth: requerir header X-Admin-Token si ADMIN_TOKEN esta configurado
+    if ADMIN_TOKEN:
+        token = request.headers.get("X-Admin-Token", "")
+        if token != ADMIN_TOKEN:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        from agent.followup import procesar_followups_pendientes
+        stats = await procesar_followups_pendientes()
+        logger.info(f"Follow-ups procesados: {stats}")
+        return {"status": "ok", "stats": stats}
+    except Exception as e:
+        logger.error(f"Error procesando follow-ups: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/webhook")
 async def webhook_verificacion(request: Request):
     """Verificación GET del webhook (requerido por Meta Cloud API, no-op para otros)."""
