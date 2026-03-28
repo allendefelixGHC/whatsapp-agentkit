@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** El bot debe atender al cliente como lo haria el mejor asesor de Bertero: rapido, con informacion precisa, sin perder ningun lead, y sabiendo cuando ceder el control a un humano.
-**Current focus:** Phase 5 (next phase after completing Phase 4)
+**Current focus:** Phase 5 — Human Takeover
 
 ## Current Position
 
-Phase: 4 of 6 (Business Flows) — COMPLETE
-Plan: 2 of 2 in current phase (all plans complete)
-Status: Phase 04 complete — ready for Phase 05
-Last activity: 2026-03-28 — Plan 04-02 complete (reiniciar_conversacion tool + prompts.yaml restart flow)
+Phase: 5 of 6 (Human Takeover) — IN PROGRESS
+Plan: 1 of 3 in current phase (plan 01 complete)
+Status: Phase 05 Plan 01 complete — ready for Plan 02
+Last activity: 2026-03-28 — Plan 05-01 complete (ConversationState foundation + HT-04 state gate)
 
-Progress: [████████████] 58%
+Progress: [█████████████] 62%
 
 ## Performance Metrics
 
@@ -38,6 +38,7 @@ Progress: [████████████] 58%
 
 *Updated after each plan completion*
 | Phase 04-business-flows P02 | 4 | 2 tasks | 3 files |
+| Phase 05-human-takeover P01 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,8 @@ Recent decisions affecting current work:
 - [Phase 04-02]: reiniciar_conversacion clears BOTH DB history and session property cache — prevents stale visita lists appearing after restart
 - [Phase 04-02]: TOOLS_DEFINITION description explicitly lists trigger phrases AND non-trigger phrases to minimize false positives
 - [Phase 04-02]: Restart flow section placed BEFORE Horario section in prompts.yaml — ordering maintains thematic grouping of flow instructions
+- [Phase 05-01]: ConversationState uses unique=True on telefono for safe upsert without conflicts
+- [Phase 05-01]: State gate uses continue to skip Claude entirely when estado==humano (silence is correct per HT-04)
 
 ### Pending Todos
 
@@ -89,5 +92,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
+Stopped at: Completed 05-01-PLAN.md (Human Takeover — ConversationState foundation + HT-04 state gate). Phase 05 in progress, ready for Plan 02.
 Stopped at: Completed 04-02-PLAN.md (Business Flows — reiniciar_conversacion tool). Phase 04 complete, ready for Phase 05.
 Resume file: None
