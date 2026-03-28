@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-28)
 ## Current Position
 
 Phase: 3 of 6 (Audio & Smart Media)
-Plan: 0 of 2 in current phase
-Status: Not started
-Last activity: 2026-03-28 — Phase 2 complete (Supabase Data Foundation verified 5/5)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-03-28 — Plan 03-01 complete (Audio Transcription via Whisper)
 
-Progress: [████████░░] 33%
+Progress: [████████░░] 37%
 
 ## Performance Metrics
 
@@ -29,9 +29,10 @@ Progress: [████████░░] 33%
 |-------|-------|-------|----------|
 | 01-technical-hardening | 2 | 6 min | 3 min |
 | 02-supabase-data-foundation | 3 | 17 min | 5.7 min |
+| 03-audio-smart-media | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (3 min), 02-01 (4 min), 02-02 (8 min), 02-03 (5 min)
+- Last 5 plans: 01-02 (3 min), 02-01 (4 min), 02-02 (8 min), 02-03 (5 min), 03-01 (4 min)
 - Trend: On track
 
 *Updated after each plan completion*
@@ -59,6 +60,10 @@ Recent decisions affecting current work:
 - [Phase 02-02]: ADMIN_TOKEN empty = auth disabled on /admin/* (dev mode); non-empty = X-Admin-Token required (production)
 - [Phase 02-03]: n8n is pure scheduler — all scraping stays in Python; n8n only fires HTTP POST to /admin/refresh-properties
 - [Phase 02-03]: n8n env vars AGENTKIT_SERVER_URL and AGENTKIT_ADMIN_TOKEN decouple workflow from hardcoded URLs
+- [03-01]: asyncio.to_thread() wraps sync openai Whisper SDK call to avoid blocking FastAPI event loop
+- [03-01]: BytesIO.name = "audio.{ext}" is critical — Whisper API infers audio format from filename, not content-type
+- [03-01]: rsplit('\n', 1) replaces only audio placeholder (last contexto line), preserving [CONTEXTO INTERNO] and [CLIENTE NUEVO/RECURRENTE] tags
+- [03-01]: Whapi /media/{id} fallback URL used when voice/audio webhook payload omits link field
 
 ### Pending Todos
 
@@ -72,5 +77,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Phase 2 complete — ready for Phase 3 planning
+Stopped at: Completed 03-01-PLAN.md (Audio Transcription) — ready for 03-02-PLAN.md (Smart Image Search)
 Resume file: None
