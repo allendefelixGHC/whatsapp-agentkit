@@ -12,8 +12,8 @@ Evolucionar el bot de WhatsApp de Bertero desde un MVP funcional a un sistema de
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Technical Hardening** - Fix reliability issues: deduplication, phone normalization, webhook auth, rate limiting, longer history
-- [ ] **Phase 2: Supabase Data Foundation** - Scraping profundo + Supabase como fuente de propiedades con refresh automatico via n8n
+- [x] **Phase 1: Technical Hardening** - Fix reliability issues: deduplication, phone normalization, webhook auth, rate limiting, longer history
+- [x] **Phase 2: Supabase Data Foundation** - Scraping profundo + Supabase como fuente de propiedades con refresh automatico via n8n
 - [ ] **Phase 3: Audio & Smart Media** - Transcripcion de audios y analisis inteligente de fotos con busqueda automatica
 - [ ] **Phase 4: Business Flows** - Flujos completos para tasacion, vender, alquiler y reinicio de calificacion
 - [ ] **Phase 5: Human Takeover** - Estado bot/humano por conversacion con notificacion real-time al vendedor
@@ -121,8 +121,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Technical Hardening | 0/2 | Not started | - |
-| 2. Supabase Data Foundation | 0/3 | Not started | - |
+| 1. Technical Hardening | 2/2 | Complete | 2026-03-28 |
+| 2. Supabase Data Foundation | 3/3 | Complete | 2026-03-28 |
 | 3. Audio & Smart Media | 0/2 | Not started | - |
 | 4. Business Flows | 0/2 | Not started | - |
 | 5. Human Takeover | 0/3 | Not started | - |

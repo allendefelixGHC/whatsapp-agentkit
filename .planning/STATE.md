@@ -5,33 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** El bot debe atender al cliente como lo haria el mejor asesor de Bertero: rapido, con informacion precisa, sin perder ningun lead, y sabiendo cuando ceder el control a un humano.
-**Current focus:** Phase 2 - Supabase Data Foundation
+**Current focus:** Phase 3 - Audio & Smart Media
 
 ## Current Position
 
-Phase: 2 of 6 (Supabase Data Foundation)
-Plan: 3 of 4 in current phase
-Status: Paused at checkpoint
-Last activity: 2026-03-28 — Plan 02-03 Task 1 complete (n8n workflow JSON created); paused at Task 2 human-verify checkpoint
+Phase: 3 of 6 (Audio & Smart Media)
+Plan: 0 of 2 in current phase
+Status: Not started
+Last activity: 2026-03-28 — Phase 2 complete (Supabase Data Foundation verified 5/5)
 
-Progress: [████░░░░░░] 25%
+Progress: [████████░░] 33%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 4.5 minutes
-- Total execution time: 0.30 hours
+- Total plans completed: 5
+- Average duration: 4.6 minutes
+- Total execution time: 0.38 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-technical-hardening | 2 | 6 min | 3 min |
-| 02-supabase-data-foundation | 2 | 12 min | 6 min |
+| 02-supabase-data-foundation | 3 | 17 min | 5.7 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (3 min), 02-01 (4 min), 02-02 (8 min), 02-03 (2 min, partial)
+- Last 5 plans: 01-01 (3 min), 01-02 (3 min), 02-01 (4 min), 02-02 (8 min), 02-03 (5 min)
 - Trend: On track
 
 *Updated after each plan completion*
@@ -51,7 +51,8 @@ Recent decisions affecting current work:
 - [Phase 01-02]: WHAPI_WEBHOOK_SECRET opt-in: no secret = no auth check (graceful degradation)
 - [Phase 01-02]: GHL_WEBHOOK_AUTH_STRICT=false default: allow unsigned GHL webhooks, reject only invalid signatures
 - [Phase 01-02]: Rate limit key is normalized phone (canonical digits-only) for consistent counting across phone format variants
-- [02-01]: supabase-py sync client (create_client) used in async context via await .execute() — no acreate_client needed
+- [02-01]: supabase-py v2 is sync — all SDK calls are direct (no await), async wrappers for FastAPI compat
+- [02-03]: Fixed detail page parsing — strip <i> tags from <li>, use id="prop-desc" for description with html.unescape()
 - [02-01]: Detail page price always overrides listing page price (DATA-05)
 - [02-01]: marcar_removidas guards empty ids_activos list to prevent full table wipe on scraping failure
 - [Phase 02-02]: Cache loaded from Supabase at startup, not per-request — property search is O(n) in-memory, <1 second (DATA-03)
@@ -71,5 +72,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: 02-03-PLAN.md Task 2 checkpoint — human must verify Phase 2 end-to-end data pipeline
+Stopped at: Phase 2 complete — ready for Phase 3 planning
 Resume file: None
