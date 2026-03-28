@@ -741,6 +741,43 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
     )
 
 
+async def solicitar_humano(telefono: str, resumen: str) -> str:
+    """
+    Pausa el bot y notifica al vendedor asignado por WhatsApp.
+    Llamar cuando el cliente pide hablar con una persona.
+    """
+    from agent.takeover import obtener_estado, set_estado, construir_mensaje_vendedor
+    from agent.utils import normalizar_telefono
+    from agent.providers import obtener_proveedor
+
+    # Idempotency guard: si ya esta en humano, no re-notificar (Pitfall 6)
+    estado_actual = await obtener_estado(telefono)
+    if estado_actual == "humano":
+        return "Ya en estado humano. Vendedor ya fue notificado previamente."
+
+    # 1. Cambiar estado a "humano"
+    await set_estado(telefono, "humano")
+
+    # 2. Enviar WhatsApp al vendedor
+    vendedor_phone_raw = os.getenv("VENDEDOR_WHATSAPP", "")
+    if vendedor_phone_raw:
+        prv = obtener_proveedor()
+        msg = construir_mensaje_vendedor(telefono, resumen)
+        vendedor_wa = normalizar_telefono(vendedor_phone_raw) + "@s.whatsapp.net"
+        try:
+            await prv.enviar_mensaje(vendedor_wa, msg)
+            logger.info(f"Takeover notificacion enviada a {vendedor_phone_raw}")
+        except Exception as e:
+            logger.error(f"Error enviando notificacion takeover a vendedor: {e}")
+    else:
+        logger.warning("VENDEDOR_WHATSAPP no configurado — notificacion WhatsApp omitida")
+
+    return (
+        "Estado cambiado a 'humano'. Vendedor notificado por WhatsApp. "
+        "Confirmar al cliente que lo va a atender un asesor en breve."
+    )
+
+
 async def reiniciar_conversacion(telefono: str) -> str:
     """
     Borra el historial de conversación completo y limpia el cache de sesión.
@@ -877,6 +914,32 @@ TOOLS_DEFINITION = [
                 }
             },
             "required": ["telefono"]
+        }
+    },
+    {
+        "name": "solicitar_humano",
+        "description": (
+            "Pausa el bot y notifica al vendedor asignado por WhatsApp. "
+            "Llamar SOLO cuando el cliente diga explicitamente que quiere hablar con una persona: "
+            "'quiero hablar con alguien', 'me pasas con una persona', 'hablar con un asesor', "
+            "'necesito ayuda de alguien', 'con alguien real', 'con el equipo', 'hablar con un humano'. "
+            "NO llamar cuando el cliente solo tiene dudas o preguntas que vos podes responder. "
+            "El resumen debe incluir: nombre si se sabe, que busca (tipo, zona, presupuesto), "
+            "propiedades que vio, y cualquier detalle relevante de la conversacion."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "telefono": {
+                    "type": "string",
+                    "description": "Telefono del cliente del contexto interno (formato canonico sin @s.whatsapp.net)"
+                },
+                "resumen": {
+                    "type": "string",
+                    "description": "Resumen completo: nombre, que busca, zona, presupuesto, propiedades vistas con links"
+                }
+            },
+            "required": ["telefono", "resumen"]
         }
     },
 ]
