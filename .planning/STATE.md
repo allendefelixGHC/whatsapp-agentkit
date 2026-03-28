@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** El bot debe atender al cliente como lo haria el mejor asesor de Bertero: rapido, con informacion precisa, sin perder ningun lead, y sabiendo cuando ceder el control a un humano.
-**Current focus:** Phase 3 - Audio & Smart Media
+**Current focus:** Phase 4 - Business Flows
 
 ## Current Position
 
-Phase: 3 of 6 (Audio & Smart Media) — COMPLETE
-Plan: 2 of 2 in current phase (phase complete)
-Status: Phase 3 complete, ready for Phase 4
-Last activity: 2026-03-28 — Plan 03-02 complete (Smart Image Search via system prompt)
+Phase: 4 of 6 (Business Flows) — IN PROGRESS
+Plan: 1 of 2 in current phase (plan 1 complete)
+Status: Plan 04-01 complete, ready for Plan 04-02 (flow restart)
+Last activity: 2026-03-28 — Plan 04-01 complete (Tasación/Venta/Alquiler captación flows in prompts.yaml)
 
-Progress: [█████████░] 42%
+Progress: [██████████░] 50%
 
 ## Performance Metrics
 
@@ -30,6 +30,7 @@ Progress: [█████████░] 42%
 | 01-technical-hardening | 2 | 6 min | 3 min |
 | 02-supabase-data-foundation | 3 | 17 min | 5.7 min |
 | 03-audio-smart-media | 2 | 8 min | 4 min |
+| 04-business-flows | 1 (of 2) | 2 min | 2 min |
 
 **Recent Trend:**
 - Last 5 plans: 02-01 (4 min), 02-02 (8 min), 02-03 (5 min), 03-01 (4 min), 03-02 (4 min)
@@ -67,6 +68,10 @@ Recent decisions affecting current work:
 - [03-02]: System prompt engineering only for image proactivity — Claude Vision already receives image in generar_respuesta(), behavioral change needed only updated instructions
 - [03-02]: Non-property image safety gate added explicitly (selfie/document/screenshot) to avoid false buscar_propiedades calls
 - [03-02]: Bertero sign no-match fallback shows similar-zone properties rather than dead end
+- [04-01]: Captación flows register after dirección + tipo minimum — m²/antigüedad optional to reduce drop-off
+- [04-01]: nombre defaults to "Cliente WhatsApp" in tasación/venta/alquiler flows — NEVER ask for name (phone is sufficient)
+- [04-01]: email NOT required in captación flows — prevents drop-off from property owners
+- [04-01]: distinct operacion values (tasacion, captacion_venta, captacion_alquiler) enable GHL triage per lead type
 
 ### Pending Todos
 
@@ -80,5 +85,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 03-02-PLAN.md (Smart Image Search) — Phase 3 complete. Ready for Phase 4.
+Stopped at: Completed 04-01-PLAN.md (Business Flows — Tasación/Venta/Alquiler captación flows). Ready for Plan 04-02 (flow restart).
 Resume file: None
