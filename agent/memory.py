@@ -52,6 +52,25 @@ class ConversationState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class FollowUpSchedule(Base):
+    """Seguimientos programados para contactos fuera de horario o con propiedades guardadas.
+
+    Ciclo de vida del campo status:
+    - pending:   programado, pendiente de envio
+    - sent:      mensaje de seguimiento enviado exitosamente
+    - cancelled: cancelado (ej: el cliente volvio a escribir antes del seguimiento)
+    """
+    __tablename__ = "follow_up_schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telefono: Mapped[str] = mapped_column(String(50), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | sent | cancelled
+    propiedades_json: Mapped[str] = mapped_column(Text, default="")  # JSON con IDs de propiedades vistas
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime)           # cuando se debe enviar
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 async def inicializar_db():
     """Crea las tablas si no existen."""
     async with engine.begin() as conn:
