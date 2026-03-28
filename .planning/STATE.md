@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-28)
 ## Current Position
 
 Phase: 2 of 6 (Supabase Data Foundation)
-Plan: 2 of 4 in current phase
-Status: In progress
-Last activity: 2026-03-28 — Plan 02-02 complete (Supabase cache wire-up + /admin/refresh-properties)
+Plan: 3 of 4 in current phase
+Status: Paused at checkpoint
+Last activity: 2026-03-28 — Plan 02-03 Task 1 complete (n8n workflow JSON created); paused at Task 2 human-verify checkpoint
 
-Progress: [████░░░░░░] 22%
+Progress: [████░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [████░░░░░░] 22%
 | 02-supabase-data-foundation | 2 | 12 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (3 min), 02-01 (4 min), 02-02 (8 min)
+- Last 5 plans: 01-01 (3 min), 01-02 (3 min), 02-01 (4 min), 02-02 (8 min), 02-03 (2 min, partial)
 - Trend: On track
 
 *Updated after each plan completion*
@@ -56,6 +56,8 @@ Recent decisions affecting current work:
 - [02-01]: marcar_removidas guards empty ids_activos list to prevent full table wipe on scraping failure
 - [Phase 02-02]: Cache loaded from Supabase at startup, not per-request — property search is O(n) in-memory, <1 second (DATA-03)
 - [Phase 02-02]: ADMIN_TOKEN empty = auth disabled on /admin/* (dev mode); non-empty = X-Admin-Token required (production)
+- [Phase 02-03]: n8n is pure scheduler — all scraping stays in Python; n8n only fires HTTP POST to /admin/refresh-properties
+- [Phase 02-03]: n8n env vars AGENTKIT_SERVER_URL and AGENTKIT_ADMIN_TOKEN decouple workflow from hardcoded URLs
 
 ### Pending Todos
 
@@ -69,5 +71,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 02-02-PLAN.md — Supabase cache wire-up + /admin/refresh-properties endpoint
+Stopped at: 02-03-PLAN.md Task 2 checkpoint — human must verify Phase 2 end-to-end data pipeline
 Resume file: None
