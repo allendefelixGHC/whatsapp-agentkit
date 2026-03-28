@@ -93,6 +93,49 @@ def construir_mensaje_vendedor(cliente_telefono: str, resumen: str) -> str:
     )
 
 
+def construir_mensaje_lead(
+    telefono: str,
+    nombre: str,
+    email: str = "",
+    operacion: str = "",
+    tipo_propiedad: str = "",
+    zona: str = "",
+    resumen: str = "",
+    propiedad_direccion: str = "",
+    propiedad_link: str = "",
+) -> str:
+    """
+    Construye mensaje WhatsApp para notificar al vendedor cuando se registra un lead.
+    Formato FU-02: nombre, telefono, email, operacion, tipo, zona, presupuesto, propiedades con links.
+
+    Note on presupuesto: The roadmap requires "presupuesto" in the vendor notification.
+    Rather than adding a separate presupuesto parameter, this info is carried in the
+    `resumen` field — Claude includes budget/price context in the conversation summary
+    that gets passed to registrar_lead_ghl(). No signature change needed.
+    """
+    lineas = [f"*NUEVO LEAD \u2014 {nombre}*", ""]
+    lineas.append(f"Telefono: {telefono}")
+    if email:
+        lineas.append(f"Email: {email}")
+    if operacion:
+        lineas.append(f"Operacion: {operacion}")
+    if tipo_propiedad:
+        lineas.append(f"Tipo: {tipo_propiedad}")
+    if zona:
+        lineas.append(f"Zona: {zona}")
+    if resumen:
+        lineas.append(f"Resumen: {resumen}")
+    if propiedad_direccion:
+        lineas.append("")
+        lineas.append(f"Propiedad: {propiedad_direccion}")
+    if propiedad_link:
+        lineas.append(f"Link: {propiedad_link}")
+    lineas.append("")
+    lineas.append("---")
+    lineas.append("Lead registrado en CRM.")
+    return "\n".join(lineas)
+
+
 # ── Procesamiento de comandos del vendedor ────────────────────────────────────
 
 async def procesar_comando_vendedor(texto: str, vendedor_telefono: str, proveedor) -> None:
