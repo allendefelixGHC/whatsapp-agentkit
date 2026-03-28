@@ -37,8 +37,18 @@ logger = logging.getLogger("agentkit")
 # Cliente de Anthropic
 client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-# Cliente de OpenAI para transcripcion Whisper
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Cliente de OpenAI para transcripcion Whisper (lazy init — no crashea si OPENAI_API_KEY no existe)
+_openai_client = None
+
+def _get_openai_client() -> OpenAI:
+    """Retorna el cliente de OpenAI, inicializandolo la primera vez."""
+    global _openai_client
+    if _openai_client is None:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY no configurada — transcripcion de audio no disponible")
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
 
 # Modelo — Haiku 3.5 para costos bajos en producción, Sonnet para desarrollo/testing
 MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
@@ -236,7 +246,7 @@ async def _descargar_y_transcribir_audio(url: str, mime: str = "audio/ogg; codec
 
         # Llamada sincrona a Whisper envuelta en asyncio.to_thread para no bloquear el event loop
         def transcribir():
-            return openai_client.audio.transcriptions.create(
+            return _get_openai_client().audio.transcriptions.create(
                 model="whisper-1",
                 file=buffer,
                 language="es",
