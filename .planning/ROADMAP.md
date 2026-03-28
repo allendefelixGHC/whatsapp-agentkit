@@ -107,12 +107,12 @@ Plans:
   1. Un cliente que vio propiedades pero no agendo recibe mensaje de seguimiento 24-48 horas despues
   2. Cada vez que se registra un lead o se hace handoff, el vendedor recibe resumen completo por WhatsApp (nombre, telefono, email, operacion, tipo, zona, presupuesto, propiedades con links)
   3. Fuera de horario (L-V despues de 18h, Sab despues de 14h, domingos) el bot responde automaticamente con el horario y registra al lead para seguimiento al dia siguiente
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 06-01: Business hours detection and after-hours response
-- [ ] 06-02: Vendor notification on lead registration and handoff
-- [ ] 06-03: Automated follow-up scheduling via n8n
+- [ ] 06-01-PLAN.md — Business hours detection + FollowUpSchedule model + after-hours gate (FU-03)
+- [ ] 06-02-PLAN.md — Vendor WhatsApp notification on lead registration (FU-02)
+- [ ] 06-03-PLAN.md — Automated follow-up scheduling + processing endpoint + n8n trigger (FU-01)
 
 ## Progress
 
