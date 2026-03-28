@@ -641,6 +641,34 @@ async def registrar_lead_ghl(
     else:
         resultado += f"Link de booking para agendar llamada con un asesor (pre-llenado con nombre y email): {booking_link}\n"
 
+    # Notificar al vendedor por WhatsApp (FU-02)
+    vendedor_phone_raw = os.getenv("VENDEDOR_WHATSAPP", "")
+    if vendedor_phone_raw:
+        try:
+            from agent.takeover import construir_mensaje_lead
+            from agent.providers import obtener_proveedor
+            from agent.utils import normalizar_telefono as _norm
+
+            msg_lead = construir_mensaje_lead(
+                telefono=telefono,
+                nombre=nombre,
+                email=email,
+                operacion=operacion,
+                tipo_propiedad=tipo_propiedad,
+                zona=zona,
+                resumen=resumen,
+                propiedad_direccion=propiedad_direccion,
+                propiedad_link=propiedad_link,
+            )
+            prv = obtener_proveedor()
+            vendedor_wa = _norm(vendedor_phone_raw) + "@s.whatsapp.net"
+            await prv.enviar_mensaje(vendedor_wa, msg_lead)
+            logger.info(f"Notificacion de lead enviada al vendedor para {telefono}")
+        except Exception as e:
+            logger.error(f"Error enviando notificacion de lead al vendedor: {e}")
+    else:
+        logger.warning("VENDEDOR_WHATSAPP no configurado — notificacion de lead al vendedor omitida")
+
     return resultado
 
 
