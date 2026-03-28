@@ -142,7 +142,7 @@ async def webhook_handler(request: Request):
         mensajes = await proveedor.parsear_webhook(request)
 
         for msg in mensajes:
-            if msg.es_propio or (not msg.texto and not msg.imagen_url):
+            if msg.es_propio or (not msg.texto and not msg.imagen_url and not msg.audio_url):
                 continue
 
             # Deduplicar: ignorar reintentos del webhook con el mismo mensaje_id
@@ -165,6 +165,8 @@ async def webhook_handler(request: Request):
             # Log con contexto de interacción
             if msg.imagen_url:
                 logger.info(f"Imagen de {msg.telefono}: {msg.texto} (url: {msg.imagen_url[:80]})")
+            elif msg.audio_url:
+                logger.info(f"Audio de {msg.telefono}: {msg.texto} (url: {msg.audio_url[:80]})")
             elif msg.boton_id:
                 logger.info(f"Botón de {msg.telefono}: {msg.texto} (id: {msg.boton_id})")
             elif msg.lista_id:
@@ -189,7 +191,14 @@ async def webhook_handler(request: Request):
             elif msg.boton_id:
                 contexto += f"\n[El cliente hizo clic en un botón. ID del botón: {msg.boton_id}]"
             contexto += f"\n{msg.texto}"
-            respuesta = await generar_respuesta(contexto, historial, imagen_url=msg.imagen_url, imagen_mime=msg.imagen_mime)
+            respuesta = await generar_respuesta(
+                contexto,
+                historial,
+                imagen_url=msg.imagen_url,
+                imagen_mime=msg.imagen_mime,
+                audio_url=msg.audio_url,
+                audio_mime=msg.audio_mime,
+            )
 
             # Guardar en memoria — incluir contexto de botón/lista para no perder info
             # Usar telefono_normalizado como clave canónica en DB

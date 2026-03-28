@@ -8,12 +8,15 @@ para buscar propiedades y enviar mensajes interactivos.
 """
 
 import os
+import io
 import json
 import yaml
 import logging
 import base64
+import asyncio
 import httpx
 from anthropic import AsyncAnthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
 from agent.tools import (
@@ -31,6 +34,9 @@ logger = logging.getLogger("agentkit")
 
 # Cliente de Anthropic
 client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+# Cliente de OpenAI para transcripcion Whisper
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Modelo — Haiku 3.5 para costos bajos en producción, Sonnet para desarrollo/testing
 MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
@@ -191,6 +197,56 @@ async def _ejecutar_herramienta(nombre: str, parametros: dict) -> str | Respuest
         return f"Herramienta desconocida: {nombre}"
 
 
+async def _descargar_y_transcribir_audio(url: str, mime: str = "audio/ogg; codecs=opus") -> str | None:
+    """Descarga audio desde Whapi y lo transcribe con OpenAI Whisper en memoria (sin escribir a disco)."""
+    if not url:
+        return None
+    try:
+        token = os.getenv("WHAPI_TOKEN", "")
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        async with httpx.AsyncClient(timeout=30.0) as http:
+            r = await http.get(url, headers=headers, follow_redirects=True)
+            if r.status_code != 200:
+                logger.error(f"Error descargando audio: {r.status_code}")
+                return None
+
+        # Mapear MIME a extension que Whisper reconoce
+        mime_base = mime.split(";")[0].strip()
+        mime_to_ext = {
+            "audio/ogg": "oga",
+            "audio/opus": "oga",
+            "audio/mpeg": "mp3",
+            "audio/mp4": "m4a",
+            "audio/wav": "wav",
+            "audio/webm": "webm",
+        }
+        ext = mime_to_ext.get(mime_base, "oga")
+
+        # Crear buffer en memoria — el nombre es critico para que Whisper detecte el formato
+        buffer = io.BytesIO(r.content)
+        buffer.name = f"audio.{ext}"
+
+        logger.info(f"Transcribiendo audio: {len(r.content)} bytes, ext={ext}")
+
+        # Llamada sincrona a Whisper envuelta en asyncio.to_thread para no bloquear el event loop
+        def transcribir():
+            return openai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=buffer,
+                language="es",
+            )
+        resultado = await asyncio.to_thread(transcribir)
+
+        texto = resultado.text.strip() if resultado.text else None
+        if texto:
+            logger.info(f"Audio transcrito ({len(r.content)} bytes): '{texto[:80]}'")
+        return texto or None
+
+    except Exception as e:
+        logger.error(f"Error transcribiendo audio: {e}")
+        return None
+
+
 async def _descargar_imagen_base64(url: str, mime: str = "image/jpeg") -> tuple[str, str] | None:
     """Descarga una imagen desde Whapi y la convierte a base64 para Claude Vision."""
     if not url:
@@ -216,14 +272,26 @@ async def _descargar_imagen_base64(url: str, mime: str = "image/jpeg") -> tuple[
         return None
 
 
-async def generar_respuesta(mensaje: str, historial: list[dict], imagen_url: str = "", imagen_mime: str = "") -> Respuesta:
+async def generar_respuesta(mensaje: str, historial: list[dict], imagen_url: str = "", imagen_mime: str = "", audio_url: str = "", audio_mime: str = "") -> Respuesta:
     """
     Genera una respuesta usando Claude API con tool_use.
     Retorna un objeto Respuesta que puede ser texto, botones o lista.
-    Soporta imágenes via Claude Vision.
+    Soporta imágenes via Claude Vision y transcripcion de audio via Whisper.
     """
     if not mensaje or len(mensaje.strip()) < 2:
         return Respuesta(tipo="texto", texto=obtener_mensaje_fallback())
+
+    # Si hay audio, transcribir y reemplazar SOLO el placeholder (ultima linea del contexto)
+    # Preserva las etiquetas [CONTEXTO INTERNO], [CLIENTE NUEVO/RECURRENTE], boton/lista IDs
+    if audio_url:
+        transcripcion = await _descargar_y_transcribir_audio(audio_url, audio_mime)
+        if transcripcion:
+            # rsplit('\n', 1) separa el contexto prefix de la ultima linea (placeholder del audio)
+            lines = mensaje.rsplit('\n', 1)
+            mensaje = lines[0] + '\n' + transcripcion
+            logger.info(f"Audio transcrito: '{transcripcion[:80]}'")
+        else:
+            return Respuesta(tipo="texto", texto="No pude escuchar bien tu mensaje de voz. ¿Podrias escribirme lo que necesitas?")
 
     system_prompt = cargar_system_prompt()
 
