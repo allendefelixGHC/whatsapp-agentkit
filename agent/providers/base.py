@@ -22,6 +22,8 @@ class MensajeEntrante:
     lista_id: str = ""  # ID de la opción de lista seleccionada (si aplica)
     imagen_url: str = ""  # URL de la imagen (si el mensaje es una foto)
     imagen_mime: str = ""  # MIME type de la imagen (image/jpeg, image/png, etc.)
+    audio_url: str = ""   # URL del audio/voice note (si el mensaje es audio)
+    audio_mime: str = ""  # MIME type del audio (audio/ogg; codecs=opus, etc.)
 
 
 @dataclass

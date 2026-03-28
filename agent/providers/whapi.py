@@ -45,6 +45,8 @@ class ProveedorWhapi(ProveedorWhatsApp):
             lista_id = ""
             imagen_url = ""
             imagen_mime = ""
+            audio_url = ""
+            audio_mime = ""
             msg_type = msg.get("type", "")
 
             # Mensajes con imagen (fotos enviadas por el cliente)
@@ -57,6 +59,19 @@ class ProveedorWhapi(ProveedorWhatsApp):
                 if not texto:
                     texto = "[Imagen enviada]"
                 logger.info(f"Imagen recibida: mime={imagen_mime}, url={imagen_url[:80] if imagen_url else 'N/A'}")
+
+            # Mensajes de voz (notas de voz) y archivos de audio
+            elif msg_type in ("voice", "audio"):
+                media_obj = msg.get("voice") or msg.get("audio") or {}
+                audio_url = media_obj.get("link", "")
+                audio_mime = media_obj.get("mime_type", "audio/ogg; codecs=opus")
+                duracion = media_obj.get("seconds", 0)
+                texto = f"[Nota de voz de {duracion}s]" if duracion else "[Audio enviado]"
+                # Si Whapi no incluye link directo, usar fallback /media/{id}
+                if not audio_url and media_obj.get("id"):
+                    audio_url = f"https://gate.whapi.cloud/media/{media_obj['id']}"
+                    logger.warning(f"Audio sin link directo, usando fallback /media/{media_obj['id']}")
+                logger.info(f"Audio recibido: mime={audio_mime}, duracion={duracion}s, url={audio_url[:80] if audio_url else 'N/A'}")
 
             # Detectar respuestas interactivas
             # Whapi envía respuestas de botón/lista con type="reply" y campo "reply"
@@ -126,6 +141,8 @@ class ProveedorWhapi(ProveedorWhatsApp):
                 lista_id=lista_id,
                 imagen_url=imagen_url,
                 imagen_mime=imagen_mime,
+                audio_url=audio_url,
+                audio_mime=audio_mime,
             ))
         return mensajes
 
