@@ -42,6 +42,7 @@ Progress: [█████████████████] 80%
 | Phase 05-human-takeover P02 | 3 | 2 tasks | 3 files |
 | Phase 05-human-takeover P03 | 5 | 2 tasks | 2 files |
 | Phase 06-follow-up-notifications P02 | 1 | 2 tasks | 2 files |
+| Phase 06-follow-up-notifications P01 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,10 @@ Recent decisions affecting current work:
 - [Phase 06-02]: [06-02]: construir_mensaje_lead uses resumen param to carry presupuesto context — no new parameter needed
 - [Phase 06-02]: [06-02]: Notification placed in success path only — CRM error path does NOT trigger vendor notification
 - [Phase 06-02]: [06-02]: Follows exact same lazy-import + try/except + graceful-degradation pattern as solicitar_humano
+- [06-01]: america/argentina/cordoba timezone (UTC-3, no DST) used via zoneinfo — no pytz needed
+- [06-01]: lazy import of programar_followup with ImportError catch — followup.py created in plan 06-03, gate works gracefully without it
+- [06-01]: BUSINESS_HOURS_ENABLED=false bypasses gate entirely — designed for testing outside business hours
+- [06-01]: after-hours gate fires AFTER vendor routing and rate limiting, BEFORE human takeover gate
 
 ### Pending Todos
 
@@ -105,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 06-02-PLAN.md (vendor WhatsApp notification on lead registration — FU-02). Ready for 06-03.
+Stopped at: Completed 06-01-PLAN.md (business hours detection + after-hours gate). Plans 06-01 and 06-02 done, ready for 06-03.
 Resume file: None
