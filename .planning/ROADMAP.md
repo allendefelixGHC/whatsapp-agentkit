@@ -77,11 +77,11 @@ Plans:
   2. Un cliente que dice "quiero vender mi casa" recibe informacion sobre el servicio y queda registrado como lead vendedor
   3. Un cliente que dice "quiero poner en alquiler" recibe info del servicio de administracion y queda registrado como lead
   4. Un cliente puede decir "empezar de nuevo" o "quiero buscar otra cosa" en cualquier punto y el flujo se reinicia limpiamente
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 04-01: Tasacion, venta and alquiler conversation flows
-- [ ] 04-02: Flow restart and re-qualification logic
+- [ ] 04-01-PLAN.md — Tasación, venta and alquiler flow blocks in system prompt (BF-01, BF-02, BF-03)
+- [ ] 04-02-PLAN.md — Flow restart tool and re-qualification logic (BF-04)
 
 ### Phase 5: Human Takeover
 **Goal**: Cuando el cliente necesita un humano, el bot cede el control al vendedor asignado con contexto completo, y el vendedor puede devolverlo
