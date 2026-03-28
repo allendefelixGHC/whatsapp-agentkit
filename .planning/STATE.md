@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** El bot debe atender al cliente como lo haria el mejor asesor de Bertero: rapido, con informacion precisa, sin perder ningun lead, y sabiendo cuando ceder el control a un humano.
-**Current focus:** Phase 4 - Business Flows
+**Current focus:** Phase 5 (next phase after completing Phase 4)
 
 ## Current Position
 
-Phase: 4 of 6 (Business Flows) — IN PROGRESS
-Plan: 1 of 2 in current phase (plan 1 complete)
-Status: Plan 04-01 complete, ready for Plan 04-02 (flow restart)
-Last activity: 2026-03-28 — Plan 04-01 complete (Tasación/Venta/Alquiler captación flows in prompts.yaml)
+Phase: 4 of 6 (Business Flows) — COMPLETE
+Plan: 2 of 2 in current phase (all plans complete)
+Status: Phase 04 complete — ready for Phase 05
+Last activity: 2026-03-28 — Plan 04-02 complete (reiniciar_conversacion tool + prompts.yaml restart flow)
 
-Progress: [██████████░] 50%
+Progress: [████████████] 58%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 4.5 minutes
 - Total execution time: 0.45 hours
 
@@ -30,13 +30,14 @@ Progress: [██████████░] 50%
 | 01-technical-hardening | 2 | 6 min | 3 min |
 | 02-supabase-data-foundation | 3 | 17 min | 5.7 min |
 | 03-audio-smart-media | 2 | 8 min | 4 min |
-| 04-business-flows | 1 (of 2) | 2 min | 2 min |
+| 04-business-flows | 2 (of 2) | 6 min | 3 min |
 
 **Recent Trend:**
 - Last 5 plans: 02-01 (4 min), 02-02 (8 min), 02-03 (5 min), 03-01 (4 min), 03-02 (4 min)
 - Trend: On track
 
 *Updated after each plan completion*
+| Phase 04-business-flows P02 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [04-01]: nombre defaults to "Cliente WhatsApp" in tasación/venta/alquiler flows — NEVER ask for name (phone is sufficient)
 - [04-01]: email NOT required in captación flows — prevents drop-off from property owners
 - [04-01]: distinct operacion values (tasacion, captacion_venta, captacion_alquiler) enable GHL triage per lead type
+- [Phase 04-02]: reiniciar_conversacion clears BOTH DB history and session property cache — prevents stale visita lists appearing after restart
+- [Phase 04-02]: TOOLS_DEFINITION description explicitly lists trigger phrases AND non-trigger phrases to minimize false positives
+- [Phase 04-02]: Restart flow section placed BEFORE Horario section in prompts.yaml — ordering maintains thematic grouping of flow instructions
 
 ### Pending Todos
 
@@ -85,5 +89,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 04-01-PLAN.md (Business Flows — Tasación/Venta/Alquiler captación flows). Ready for Plan 04-02 (flow restart).
+Stopped at: Completed 04-02-PLAN.md (Business Flows — reiniciar_conversacion tool). Phase 04 complete, ready for Phase 05.
 Resume file: None
