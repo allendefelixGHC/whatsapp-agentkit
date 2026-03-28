@@ -1,0 +1,167 @@
+{
+  "name": "AgentKit - Refresh Propiedades (Hourly)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "notes": "Runs every hour at the top of the hour (cron: 0 * * * *)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTKIT_SERVER_URL }}/admin/refresh-properties",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Admin-Token",
+              "value": "={{ $env.AGENTKIT_ADMIN_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "POST /admin/refresh-properties",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "notes": "Calls the AgentKit FastAPI server to trigger a full property scrape and Supabase upsert. Timeout: 120s (scraping 80+ detail pages takes ~60s). Expected response: {\"status\": \"ok\", \"stats\": {\"total\": N, \"nuevas\": M, \"removidas\": R}}"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-status-200",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "IF Success (200)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Refresh exitoso — loguear stats\nconst body = $input.first().json.body || {};\nconst stats = body.stats || {};\nconsole.log(`[AgentKit] Refresh OK — total: ${stats.total}, nuevas: ${stats.nuevas}, removidas: ${stats.removidas}`);\nreturn $input.all();"
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 220],
+      "notes": "Logs refresh stats to n8n console. Extend this node to send a Telegram/Slack/email notification if desired."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Refresh fallido — loguear error\nconst statusCode = $input.first().json.statusCode || 'unknown';\nconst body = $input.first().json.body || {};\nconsole.error(`[AgentKit] Refresh FALLIDO — status: ${statusCode}, error: ${JSON.stringify(body)}`);\n// TODO: Agrega aqui una notificacion (Telegram, email, Slack)\n// Ejemplo: conecta un nodo Send Email o Telegram despues de este\nreturn $input.all();"
+      },
+      "id": "a1b2c3d4-0005-4000-8000-000000000005",
+      "name": "Log Error (Notify)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 400],
+      "notes": "Handles failed refresh. Add a Telegram or email notification node after this to alert on failures."
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "POST /admin/refresh-properties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /admin/refresh-properties": {
+      "main": [
+        [
+          {
+            "node": "IF Success (200)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Success (200)": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error (Notify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "02030001-0000-0000-0000-000000000000",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "id": "agentkit-refresh-propiedades-hourly",
+  "tags": ["agentkit", "bertero", "supabase", "scheduler"],
+  "description": "Llama al servidor AgentKit cada hora para refresar el catálogo de propiedades Bertero en Supabase.\n\nCONFIGURACION REQUERIDA:\n- Crea dos variables de entorno en n8n (Settings -> Environment Variables):\n  1. AGENTKIT_SERVER_URL = URL pública de tu servidor (ej: https://tu-app.up.railway.app)\n  2. AGENTKIT_ADMIN_TOKEN = el mismo valor que ADMIN_TOKEN en tu .env de AgentKit\n\nFLUJO:\n1. Schedule Trigger corre cada hora en punto (cron: 0 * * * *)\n2. HTTP Request hace POST a /admin/refresh-properties con el token de admin\n3. AgentKit scrapea Bertero, guarda en Supabase y recarga el cache en memoria\n4. IF node verifica que el status sea 200\n5. En éxito: Log Success loguea las stats del refresh\n6. En fallo: Log Error loguea el error (extiende para enviar notificación)\n\nRESPUESTA ESPERADA:\n{\"status\": \"ok\", \"stats\": {\"total\": 60, \"nuevas\": 5, \"removidas\": 2}}"
+}
