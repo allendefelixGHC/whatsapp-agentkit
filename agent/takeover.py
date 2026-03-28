@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, update
 
 from agent.memory import async_session, ConversationState
+from agent.utils import normalizar_telefono
 
 logger = logging.getLogger("agentkit")
 
@@ -92,6 +93,83 @@ def construir_mensaje_vendedor(cliente_telefono: str, resumen: str) -> str:
     )
 
 
+# ── Procesamiento de comandos del vendedor ────────────────────────────────────
+
+async def procesar_comando_vendedor(texto: str, vendedor_telefono: str, proveedor) -> None:
+    """
+    Procesa un comando WhatsApp enviado por el vendedor y envía confirmación.
+
+    Comandos soportados:
+    - #bot <phone>  : Devuelve la conversacion del cliente al bot
+    - #bot-all      : Devuelve TODAS las conversaciones humano al bot
+    - #estado <phone>: Reporta el estado actual de una conversacion
+    - Cualquier otro mensaje que empiece con #: ignorado silenciosamente
+
+    IMPORTANTE: Solo se llama cuando el mensaje EMPIEZA con "#".
+    Mensajes sin "#" del vendedor se ignoran en main.py antes de llegar aquí.
+
+    Args:
+        texto: Texto del mensaje del vendedor (ya empieza con "#")
+        vendedor_telefono: Telefono del vendedor (formato Whapi, para enviarle la confirmacion)
+        proveedor: Instancia del proveedor de WhatsApp (para enviar confirmacion al vendedor)
+    """
+    texto = texto.strip()
+
+    if texto.lower().startswith("#bot-all"):
+        # Devolver TODAS las conversaciones al bot
+        devueltas = await devolver_todas_al_bot()
+        if devueltas:
+            msg = f"✅ *{len(devueltas)} conversacion(es) devuelta(s) al bot:*\n" + "\n".join(f"• {t}" for t in devueltas)
+        else:
+            msg = "ℹ️ No hay conversaciones en modo humano actualmente."
+        await proveedor.enviar_mensaje(vendedor_telefono, msg)
+        logger.info(f"Comando #bot-all: {len(devueltas)} conversaciones devueltas al bot")
+
+    elif texto.lower().startswith("#bot "):
+        # Devolver una conversacion especifica al bot
+        # Formato: #bot <phone> — tolerante a +, @s.whatsapp.net, espacios extra
+        partes = texto.split(" ", 1)
+        if len(partes) < 2 or not partes[1].strip():
+            await proveedor.enviar_mensaje(vendedor_telefono, "❌ Uso: #bot <numero> (ej: #bot 5493517575244)")
+            return
+        raw_phone = partes[1].strip()
+        # Normalizar: quitar +, @s.whatsapp.net, luego normalizar_telefono()
+        raw_phone = raw_phone.replace("+", "").split("@")[0]
+        telefono_norm = normalizar_telefono(raw_phone)
+        if not telefono_norm:
+            await proveedor.enviar_mensaje(vendedor_telefono, f"❌ No se pudo parsear el numero: {raw_phone}")
+            return
+        await set_estado(telefono_norm, "bot")
+        await proveedor.enviar_mensaje(
+            vendedor_telefono,
+            f"✅ Conversacion *{telefono_norm}* devuelta al bot."
+        )
+        logger.info(f"Comando #bot: conversacion {telefono_norm} devuelta al bot por vendedor")
+
+    elif texto.lower().startswith("#estado "):
+        # Reportar estado de una conversacion
+        partes = texto.split(" ", 1)
+        if len(partes) < 2 or not partes[1].strip():
+            await proveedor.enviar_mensaje(vendedor_telefono, "❌ Uso: #estado <numero> (ej: #estado 5493517575244)")
+            return
+        raw_phone = partes[1].strip()
+        raw_phone = raw_phone.replace("+", "").split("@")[0]
+        telefono_norm = normalizar_telefono(raw_phone)
+        if not telefono_norm:
+            await proveedor.enviar_mensaje(vendedor_telefono, f"❌ No se pudo parsear el numero: {raw_phone}")
+            return
+        estado = await obtener_estado(telefono_norm)
+        await proveedor.enviar_mensaje(
+            vendedor_telefono,
+            f"📊 Conversacion *{telefono_norm}*: estado actual = *{estado}*"
+        )
+        logger.info(f"Comando #estado: {telefono_norm} = {estado}")
+
+    else:
+        # Comando desconocido que empieza con "#" — ignorar silenciosamente
+        logger.debug(f"Comando de vendedor no reconocido (ignorado): {texto[:50]}")
+
+
 # ── Timeout: devolver conversaciones inactivas al bot ─────────────────────────
 
 async def check_and_apply_timeouts(timeout_hours: int = 4) -> list[str]:
@@ -159,6 +237,9 @@ async def timeout_loop() -> None:
     timeout_hours = int(os.getenv("TAKEOVER_TIMEOUT_HOURS", "4"))
     while True:
         await asyncio.sleep(3600)  # Verificar cada hora
-        devueltas = await check_and_apply_timeouts(timeout_hours)
-        if devueltas:
-            logger.info(f"Timeout loop: {len(devueltas)} conversaciones devueltas al bot: {devueltas}")
+        try:
+            devueltas = await check_and_apply_timeouts(timeout_hours)
+            if devueltas:
+                logger.info(f"Timeout loop: {len(devueltas)} conversaciones devueltas al bot: {devueltas}")
+        except Exception as e:
+            logger.error(f"Error en timeout loop: {e}")
