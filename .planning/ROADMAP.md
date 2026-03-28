@@ -62,11 +62,11 @@ Plans:
   1. Un cliente envia un audio de 30 segundos describiendo lo que busca, y el bot responde como si hubiera escrito un mensaje de texto
   2. Un cliente envia foto de una propiedad/cartel y el bot lanza busqueda automatica sin preguntar datos adicionales
   3. Si la foto muestra un cartel de Bertero con datos visibles, el bot identifica la propiedad y ofrece agendar visita
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 03-01: WhatsApp audio download and transcription pipeline
-- [ ] 03-02: Smart image analysis with automatic property search
+- [ ] 03-01-PLAN.md — WhatsApp audio download and transcription pipeline (AUDIO-01, AUDIO-02)
+- [ ] 03-02-PLAN.md — Smart image analysis with automatic property search (IMG-01, IMG-02)
 
 ### Phase 4: Business Flows
 **Goal**: Los clientes pueden completar flujos de tasacion, venta y alquiler de principio a fin, y reiniciar la calificacion en cualquier momento
