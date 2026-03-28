@@ -92,12 +92,12 @@ Plans:
   2. El vendedor asignado recibe un WhatsApp con resumen completo: nombre del cliente, que busca, propiedades vistas, presupuesto
   3. Mientras el estado es "humano", nuevos mensajes del cliente NO generan respuesta del bot
   4. El vendedor puede devolver el control al bot con un comando o despues de un timeout configurable
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 05-01: Conversation state management (bot/human/closed)
-- [ ] 05-02: Vendor notification and handoff with context summary
-- [ ] 05-03: Return-to-bot mechanism (command + timeout)
+- [ ] 05-01-PLAN.md — ConversationState model, state CRUD, and bot silence gate (HT-01, HT-04)
+- [ ] 05-02-PLAN.md — solicitar_humano tool with vendor WhatsApp notification (HT-02, HT-03)
+- [ ] 05-03-PLAN.md — Vendor command routing and timeout auto-return (HT-05)
 
 ### Phase 6: Follow-up & Notifications
 **Goal**: El bot hace seguimiento automatico post-consulta y respeta horarios de atencion reales
