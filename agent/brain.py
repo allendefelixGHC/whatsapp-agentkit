@@ -25,6 +25,7 @@ from agent.tools import (
     registrar_lead_ghl,
     obtener_link_agendar,
     obtener_propiedades_para_visita,
+    reiniciar_conversacion,
     TOOLS_DEFINITION,
 )
 from agent.providers.base import Respuesta, Boton, SeccionLista, FilaLista
@@ -191,6 +192,8 @@ async def _ejecutar_herramienta(nombre: str, parametros: dict) -> str | Respuest
         return await obtener_link_agendar()
     elif nombre == "obtener_propiedades_para_visita":
         return obtener_propiedades_para_visita(**parametros)
+    elif nombre == "reiniciar_conversacion":
+        return await reiniciar_conversacion(**parametros)
     elif nombre in ("enviar_botones", "enviar_lista"):
         return _construir_respuesta_interactiva(nombre, parametros)
     else:
