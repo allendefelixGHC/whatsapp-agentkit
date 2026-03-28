@@ -19,6 +19,8 @@ from dotenv import load_dotenv
 from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
 from agent.providers import obtener_proveedor
+from agent.dedup import es_duplicado
+from agent.utils import normalizar_telefono
 from agent.ghl import (
     buscar_contacto_por_email,
     buscar_contacto_por_telefono,
@@ -87,6 +89,15 @@ async def webhook_handler(request: Request):
             if msg.es_propio or (not msg.texto and not msg.imagen_url):
                 continue
 
+            # Deduplicar: ignorar reintentos del webhook con el mismo mensaje_id
+            if es_duplicado(msg.mensaje_id):
+                logger.debug(f"Mensaje duplicado ignorado: {msg.mensaje_id}")
+                continue
+
+            # Normalizar teléfono para operaciones de memoria (DB key canónica)
+            # IMPORTANTE: msg.telefono original (con @s.whatsapp.net) se usa para enviar por Whapi
+            telefono_normalizado = normalizar_telefono(msg.telefono)
+
             # Log con contexto de interacción
             if msg.imagen_url:
                 logger.info(f"Imagen de {msg.telefono}: {msg.texto} (url: {msg.imagen_url[:80]})")
@@ -102,7 +113,7 @@ async def webhook_handler(request: Request):
 
             # Obtener historial y generar respuesta
             # Pasamos el teléfono y contexto de interacción (botón/lista) para que Claude sepa qué pasó
-            historial = await obtener_historial(msg.telefono)
+            historial = await obtener_historial(telefono_normalizado)
             es_cliente_nuevo = len(historial) == 0
             contexto = f"[CONTEXTO INTERNO - NO MOSTRAR AL CLIENTE: teléfono del cliente es {msg.telefono}]"
             if es_cliente_nuevo:
@@ -117,13 +128,14 @@ async def webhook_handler(request: Request):
             respuesta = await generar_respuesta(contexto, historial, imagen_url=msg.imagen_url, imagen_mime=msg.imagen_mime)
 
             # Guardar en memoria — incluir contexto de botón/lista para no perder info
+            # Usar telefono_normalizado como clave canónica en DB
             texto_guardar = msg.texto
             if msg.lista_id:
                 texto_guardar = f"[Seleccionó de lista: {msg.lista_id}] {msg.texto}"
             elif msg.boton_id:
                 texto_guardar = f"[Botón: {msg.boton_id}] {msg.texto}"
-            await guardar_mensaje(msg.telefono, "user", texto_guardar)
-            await guardar_mensaje(msg.telefono, "assistant", respuesta.texto)
+            await guardar_mensaje(telefono_normalizado, "user", texto_guardar)
+            await guardar_mensaje(telefono_normalizado, "assistant", respuesta.texto)
 
             # Enviar respuesta según tipo (texto, botones o lista)
             await proveedor.enviar_respuesta(msg.telefono, respuesta)
@@ -243,12 +255,9 @@ async def ghl_webhook_handler(request: Request):
             # 1. WhatsApp de confirmación al cliente
             if phone:
                 try:
-                    tel_limpio = phone.replace("+", "")
-                    # Fix teléfono argentino: GHL guarda 543517575244 (sin 9)
-                    # pero WhatsApp necesita 5493517575244 (con 9 móvil)
-                    if tel_limpio.startswith("54") and not tel_limpio.startswith("549") and len(tel_limpio) == 12:
-                        tel_limpio = "549" + tel_limpio[2:]
-                    tel_whapi = tel_limpio + "@s.whatsapp.net"
+                    # normalizar_telefono() convierte cualquier formato al canónico (ej: 5493517575244)
+                    # Luego agregar @s.whatsapp.net para envío por Whapi
+                    tel_whapi = normalizar_telefono(phone) + "@s.whatsapp.net"
                     # Personalizar mensaje según si hay propiedad o es consulta general
                     if propiedad_dir:
                         mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"

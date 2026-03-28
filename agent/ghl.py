@@ -10,6 +10,7 @@ import os
 import logging
 import httpx
 from dotenv import load_dotenv
+from agent.utils import normalizar_telefono
 
 load_dotenv()
 logger = logging.getLogger("agentkit")
@@ -109,20 +110,18 @@ async def crear_o_actualizar_contacto(
         logger.warning("GHL_API_KEY no configurada")
         return {"error": "GHL no configurado"}
 
-    # Limpiar teléfono (remover @s.whatsapp.net si viene del webhook)
-    tel_limpio = telefono.replace("@s.whatsapp.net", "").replace("@c.us", "").replace("+", "")
-    # Solo dígitos para validación
-    digits_only = "".join(c for c in tel_limpio if c.isdigit())
+    # Normalizar a forma canónica interna (ej: "5493517575244")
+    digits_only = normalizar_telefono(telefono)
     if len(digits_only) < 8:
         logger.warning(f"Teléfono inválido para GHL: {telefono}")
         return {"error": "Teléfono inválido", "id": "", "vendedor": asignar_vendedor(zona) if zona else VENDEDOR_DEFAULT}
-    tel_limpio = digits_only
-    # Fix teléfono argentino: WhatsApp envía 5493517575244 (con 9 móvil)
-    # pero GHL necesita +543517575244 (sin el 9 móvil)
-    if tel_limpio.startswith("549") and len(tel_limpio) == 13:
-        tel_limpio = "54" + tel_limpio[3:]
-        logger.info(f"Teléfono argentino normalizado: 549... → +{tel_limpio}")
-    tel_limpio = f"+{tel_limpio}"
+    # GHL necesita +543517575244 (sin el 9 móvil AR)
+    # normalizar_telefono retorna 5493517575244 (con 9) → remover el 9 para GHL
+    tel_ghl = digits_only
+    if tel_ghl.startswith("549") and len(tel_ghl) == 13:
+        tel_ghl = "54" + tel_ghl[3:]
+        logger.info(f"Teléfono normalizado para GHL: {digits_only} → +{tel_ghl}")
+    tel_limpio = f"+{tel_ghl}"
 
     # Asignar vendedor
     vendedor = asignar_vendedor(zona) if zona else VENDEDOR_DEFAULT
@@ -384,13 +383,19 @@ async def buscar_contacto_por_telefono(telefono: str) -> str | None:
     if not GHL_API_KEY or not telefono:
         return None
 
+    # Normalizar a formato GHL (+543...) para la búsqueda
+    tel_norm = normalizar_telefono(telefono)
+    if tel_norm.startswith("549") and len(tel_norm) == 13:
+        tel_norm = "54" + tel_norm[3:]
+    tel_query = f"+{tel_norm}" if tel_norm else telefono
+
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
                 f"{GHL_API_BASE}/contacts/",
                 params={
                     "locationId": GHL_LOCATION_ID,
-                    "query": telefono,
+                    "query": tel_query,
                     "limit": 1,
                 },
                 headers=_headers(),
