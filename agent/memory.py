@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Text, DateTime, select, Integer
+from sqlalchemy import String, Text, DateTime, select, Integer, UniqueConstraint
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -39,6 +39,17 @@ class Mensaje(Base):
     role: Mapped[str] = mapped_column(String(20))  # "user" o "assistant"
     content: Mapped[str] = mapped_column(Text)
     timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ConversationState(Base):
+    """Estado de la conversacion por numero de telefono: bot, humano, o cerrado."""
+    __tablename__ = "conversation_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telefono: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    estado: Mapped[str] = mapped_column(String(20), default="bot")  # "bot" | "humano" | "cerrado"
+    vendedor: Mapped[str] = mapped_column(String(100), default="")  # vendedor asignado
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 async def inicializar_db():
