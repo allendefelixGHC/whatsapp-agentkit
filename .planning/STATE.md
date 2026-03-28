@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-28)
 ## Current Position
 
 Phase: 5 of 6 (Human Takeover) — IN PROGRESS
-Plan: 1 of 3 in current phase (plan 01 complete)
-Status: Phase 05 Plan 01 complete — ready for Plan 02
-Last activity: 2026-03-28 — Plan 05-01 complete (ConversationState foundation + HT-04 state gate)
+Plan: 2 of 3 in current phase (plan 02 complete)
+Status: Phase 05 Plan 02 complete — ready for Plan 03
+Last activity: 2026-03-28 — Plan 05-02 complete (solicitar_humano tool + vendor notification + takeover flow)
 
-Progress: [█████████████] 62%
+Progress: [██████████████] 67%
 
 ## Performance Metrics
 
@@ -39,6 +39,7 @@ Progress: [█████████████] 62%
 *Updated after each plan completion*
 | Phase 04-business-flows P02 | 4 | 2 tasks | 3 files |
 | Phase 05-human-takeover P01 | 2 | 2 tasks | 4 files |
+| Phase 05-human-takeover P02 | 3 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 04-02]: Restart flow section placed BEFORE Horario section in prompts.yaml — ordering maintains thematic grouping of flow instructions
 - [Phase 05-01]: ConversationState uses unique=True on telefono for safe upsert without conflicts
 - [Phase 05-01]: State gate uses continue to skip Claude entirely when estado==humano (silence is correct per HT-04)
+- [Phase 05-02]: solicitar_humano idempotent — if estado==humano already, returns early without re-notifying vendor
+- [Phase 05-02]: VENDEDOR_WHATSAPP opt-in — warning if unset, not error; tool still changes state even if WhatsApp notification is skipped
+- [Phase 05-02]: TOOLS_DEFINITION description lists explicit trigger phrases AND non-trigger guidance, same pattern as reiniciar_conversacion
 
 ### Pending Todos
 
@@ -92,6 +96,6 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
+Stopped at: Completed 05-02-PLAN.md (Human Takeover — solicitar_humano tool + vendor notification). Phase 05 in progress, ready for Plan 03.
 Stopped at: Completed 05-01-PLAN.md (Human Takeover — ConversationState foundation + HT-04 state gate). Phase 05 in progress, ready for Plan 02.
-Stopped at: Completed 04-02-PLAN.md (Business Flows — reiniciar_conversacion tool). Phase 04 complete, ready for Phase 05.
 Resume file: None
