@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-03-28)
 ## Current Position
 
 Phase: 6 of 6 (Follow-up and Notifications) — IN PROGRESS
-Plan: 2 of 4 in current phase (plan 02 complete)
-Status: Phase 06 plan 02 complete — vendor lead notification (FU-02) done
-Last activity: 2026-03-28 — Plan 06-02 complete (vendor WhatsApp notification on lead registration)
+Plan: 3 of 4 in current phase (plan 03 complete)
+Status: Phase 06 plan 03 complete — automated follow-up scheduling (FU-01) done
+Last activity: 2026-03-28 — Plan 06-03 complete (follow-up CRUD + /admin/process-followups endpoint)
 
-Progress: [█████████████████] 80%
+Progress: [██████████████████] 85%
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Progress: [█████████████████] 80%
 | Phase 05-human-takeover P03 | 5 | 2 tasks | 2 files |
 | Phase 06-follow-up-notifications P02 | 1 | 2 tasks | 2 files |
 | Phase 06-follow-up-notifications P01 | 2 | 2 tasks | 4 files |
+| Phase 06-follow-up-notifications P03 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,9 @@ Recent decisions affecting current work:
 - [06-01]: lazy import of programar_followup with ImportError catch — followup.py created in plan 06-03, gate works gracefully without it
 - [06-01]: BUSINESS_HOURS_ENABLED=false bypasses gate entirely — designed for testing outside business hours
 - [06-01]: after-hours gate fires AFTER vendor routing and rate limiting, BEFORE human takeover gate
+- [06-03]: Upsert pattern in programar_followup — same phone, multiple searches = one follow-up, rescheduled each time
+- [06-03]: cancelar_followup is idempotent — safe to call from registrar_lead_ghl and solicitar_humano without prior check
+- [06-03]: humano state checked at processing time (not scheduling time) — vendor may close takeover before follow-up fires
 
 ### Pending Todos
 
@@ -110,5 +114,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 06-01-PLAN.md (business hours detection + after-hours gate). Plans 06-01 and 06-02 done, ready for 06-03.
+Stopped at: Completed 06-03-PLAN.md (automated follow-up scheduling). Plans 06-01, 06-02, 06-03 done, ready for 06-04.
 Resume file: None
