@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-03-28)
 
 **Core value:** El bot debe atender al cliente como lo haria el mejor asesor de Bertero: rapido, con informacion precisa, sin perder ningun lead, y sabiendo cuando ceder el control a un humano.
-**Current focus:** Phase 5 — Human Takeover
+**Current focus:** Phase 6 — Follow-up and Notifications
 
 ## Current Position
 
-Phase: 5 of 6 (Human Takeover) — COMPLETE
-Plan: 3 of 3 in current phase (plan 03 complete — phase DONE)
-Status: Phase 05 complete — all 3 plans done, ready for Phase 06
-Last activity: 2026-03-28 — Plan 05-03 complete (vendor commands + timeout loop)
+Phase: 6 of 6 (Follow-up and Notifications) — IN PROGRESS
+Plan: 2 of 4 in current phase (plan 02 complete)
+Status: Phase 06 plan 02 complete — vendor lead notification (FU-02) done
+Last activity: 2026-03-28 — Plan 06-02 complete (vendor WhatsApp notification on lead registration)
 
-Progress: [████████████████] 75%
+Progress: [█████████████████] 80%
 
 ## Performance Metrics
 
@@ -41,6 +41,7 @@ Progress: [████████████████] 75%
 | Phase 05-human-takeover P01 | 2 | 2 tasks | 4 files |
 | Phase 05-human-takeover P02 | 3 | 2 tasks | 3 files |
 | Phase 05-human-takeover P03 | 5 | 2 tasks | 2 files |
+| Phase 06-follow-up-notifications P02 | 1 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,9 @@ Recent decisions affecting current work:
 - [Phase 05-03]: VENDEDOR_PHONE_NORM computed at module load — avoids per-request env lookup and normalizes once
 - [Phase 05-03]: Vendor routing uses continue unconditionally — vendor phone NEVER reaches client message pipeline or DB history
 - [Phase 05-03]: Startup call to check_and_apply_timeouts() before asyncio.create_task(timeout_loop()) — catches stale humano states from pre-restart period (Pitfall 3)
+- [Phase 06-02]: [06-02]: construir_mensaje_lead uses resumen param to carry presupuesto context — no new parameter needed
+- [Phase 06-02]: [06-02]: Notification placed in success path only — CRM error path does NOT trigger vendor notification
+- [Phase 06-02]: [06-02]: Follows exact same lazy-import + try/except + graceful-degradation pattern as solicitar_humano
 
 ### Pending Todos
 
@@ -101,5 +105,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 05-03-PLAN.md (Human Takeover — vendor commands + timeout loop). Phase 05 COMPLETE, ready for Phase 06.
+Stopped at: Completed 06-02-PLAN.md (vendor WhatsApp notification on lead registration — FU-02). Ready for 06-03.
 Resume file: None
