@@ -21,6 +21,8 @@ from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
 from agent.providers import obtener_proveedor
 from agent.dedup import es_duplicado
 from agent.utils import normalizar_telefono
+from agent.auth import verificar_firma_ghl
+from agent.limiter import verificar_rate_limit, RATE_LIMIT_MESSAGE
 from agent.ghl import (
     buscar_contacto_por_email,
     buscar_contacto_por_telefono,
@@ -41,6 +43,15 @@ logger = logging.getLogger("agentkit")
 # Proveedor de WhatsApp (se configura en .env con WHATSAPP_PROVIDER)
 proveedor = obtener_proveedor()
 PORT = int(os.getenv("PORT", 8000))
+
+# Secreto de autenticación para el webhook de Whapi (TECH-04)
+# Si está vacío, la autenticación Whapi está desactivada (modo degradado)
+WHAPI_WEBHOOK_SECRET = os.getenv("WHAPI_WEBHOOK_SECRET", "")
+
+# Modo estricto para webhooks GHL sin firma (TECH-05)
+# false (default): permite webhooks sin X-GHL-Signature (ej: automatizaciones internas)
+# true: rechaza todos los webhooks GHL que no tengan firma válida
+GHL_WEBHOOK_AUTH_STRICT = os.getenv("GHL_WEBHOOK_AUTH_STRICT", "false").lower() == "true"
 
 
 @asynccontextmanager
@@ -83,6 +94,13 @@ async def webhook_handler(request: Request):
     Soporta respuestas de texto, botones y listas.
     """
     try:
+        # Autenticación Whapi (TECH-04): verificar X-Whapi-Token si el secreto está configurado
+        if WHAPI_WEBHOOK_SECRET:
+            token = request.headers.get("X-Whapi-Token", "")
+            if token != WHAPI_WEBHOOK_SECRET:
+                logger.warning("Webhook Whapi rechazado — token inválido")
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
         mensajes = await proveedor.parsear_webhook(request)
 
         for msg in mensajes:
@@ -97,6 +115,14 @@ async def webhook_handler(request: Request):
             # Normalizar teléfono para operaciones de memoria (DB key canónica)
             # IMPORTANTE: msg.telefono original (con @s.whatsapp.net) se usa para enviar por Whapi
             telefono_normalizado = normalizar_telefono(msg.telefono)
+
+            # Rate limiting (TECH-06): verificar límite de mensajes por teléfono por minuto
+            # Usar teléfono normalizado como clave (conteo consistente sin importar el formato)
+            # Usar msg.telefono original para enviar (Whapi necesita @s.whatsapp.net)
+            if not verificar_rate_limit(telefono_normalizado):
+                logger.warning(f"Rate limit excedido para {telefono_normalizado}")
+                await proveedor.enviar_mensaje(msg.telefono, RATE_LIMIT_MESSAGE)
+                continue  # No llamar a Claude API
 
             # Log con contexto de interacción
             if msg.imagen_url:
@@ -158,7 +184,26 @@ async def ghl_webhook_handler(request: Request):
     Opcionalmente envía confirmación por WhatsApp.
     """
     try:
-        body = await request.json()
+        # CRÍTICO: leer raw_body PRIMERO para poder verificar firma Ed25519 (TECH-05)
+        # Después de request.body(), NO llamar request.json() — usar json.loads(raw_body)
+        raw_body = await request.body()
+
+        # Autenticación GHL (TECH-05): verificar X-GHL-Signature (Ed25519)
+        sig = request.headers.get("X-GHL-Signature", "")
+        if sig:
+            # Header presente: verificar firma — rechazar si es inválida
+            if not verificar_firma_ghl(raw_body, sig):
+                logger.warning("Webhook GHL rechazado — firma Ed25519 inválida")
+                raise HTTPException(status_code=401, detail="Unauthorized")
+        elif GHL_WEBHOOK_AUTH_STRICT:
+            # Header ausente y modo estricto activado: rechazar
+            logger.warning("Webhook GHL rechazado — sin X-GHL-Signature en modo estricto")
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        else:
+            # Header ausente, modo permisivo (default): dejar pasar con advertencia
+            logger.debug("Webhook GHL sin X-GHL-Signature — modo permisivo, procesando igual")
+
+        body = json.loads(raw_body)
         logger.info(f"Webhook GHL recibido: {json.dumps(body, default=str)[:2000]}")
 
         # GHL envía datos del contacto y la cita
