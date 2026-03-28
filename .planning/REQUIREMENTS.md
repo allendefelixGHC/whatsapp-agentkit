@@ -95,40 +95,40 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| AUDIO-01 | — | Pending |
-| AUDIO-02 | — | Pending |
-| IMG-01 | — | Pending |
-| IMG-02 | — | Pending |
-| HT-01 | — | Pending |
-| HT-02 | — | Pending |
-| HT-03 | — | Pending |
-| HT-04 | — | Pending |
-| HT-05 | — | Pending |
-| FU-01 | — | Pending |
-| FU-02 | — | Pending |
-| FU-03 | — | Pending |
-| BF-01 | — | Pending |
-| BF-02 | — | Pending |
-| BF-03 | — | Pending |
-| BF-04 | — | Pending |
-| TECH-01 | — | Pending |
-| TECH-02 | — | Pending |
-| TECH-03 | — | Pending |
-| TECH-04 | — | Pending |
-| TECH-05 | — | Pending |
-| TECH-06 | — | Pending |
-| TECH-07 | — | Pending |
+| TECH-01 | Phase 1: Technical Hardening | Pending |
+| TECH-02 | Phase 1: Technical Hardening | Pending |
+| TECH-03 | Phase 1: Technical Hardening | Pending |
+| TECH-04 | Phase 1: Technical Hardening | Pending |
+| TECH-05 | Phase 1: Technical Hardening | Pending |
+| TECH-06 | Phase 1: Technical Hardening | Pending |
+| DATA-01 | Phase 2: Supabase Data Foundation | Pending |
+| DATA-02 | Phase 2: Supabase Data Foundation | Pending |
+| DATA-03 | Phase 2: Supabase Data Foundation | Pending |
+| DATA-04 | Phase 2: Supabase Data Foundation | Pending |
+| DATA-05 | Phase 2: Supabase Data Foundation | Pending |
+| TECH-07 | Phase 2: Supabase Data Foundation | Pending |
+| AUDIO-01 | Phase 3: Audio & Smart Media | Pending |
+| AUDIO-02 | Phase 3: Audio & Smart Media | Pending |
+| IMG-01 | Phase 3: Audio & Smart Media | Pending |
+| IMG-02 | Phase 3: Audio & Smart Media | Pending |
+| BF-01 | Phase 4: Business Flows | Pending |
+| BF-02 | Phase 4: Business Flows | Pending |
+| BF-03 | Phase 4: Business Flows | Pending |
+| BF-04 | Phase 4: Business Flows | Pending |
+| HT-01 | Phase 5: Human Takeover | Pending |
+| HT-02 | Phase 5: Human Takeover | Pending |
+| HT-03 | Phase 5: Human Takeover | Pending |
+| HT-04 | Phase 5: Human Takeover | Pending |
+| HT-05 | Phase 5: Human Takeover | Pending |
+| FU-01 | Phase 6: Follow-up & Notifications | Pending |
+| FU-02 | Phase 6: Follow-up & Notifications | Pending |
+| FU-03 | Phase 6: Follow-up & Notifications | Pending |
 
 **Coverage:**
 - v1 requirements: 28 total
-- Mapped to phases: 0
-- Unmapped: 28 ⚠️
+- Mapped to phases: 28
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-28*
-*Last updated: 2026-03-28 after initial definition*
+*Last updated: 2026-03-27 after roadmap creation*
