@@ -9,12 +9,12 @@ See: .planning/PROJECT.md (updated 2026-03-28)
 
 ## Current Position
 
-Phase: 5 of 6 (Human Takeover) — IN PROGRESS
-Plan: 2 of 3 in current phase (plan 02 complete)
-Status: Phase 05 Plan 02 complete — ready for Plan 03
-Last activity: 2026-03-28 — Plan 05-02 complete (solicitar_humano tool + vendor notification + takeover flow)
+Phase: 5 of 6 (Human Takeover) — COMPLETE
+Plan: 3 of 3 in current phase (plan 03 complete — phase DONE)
+Status: Phase 05 complete — all 3 plans done, ready for Phase 06
+Last activity: 2026-03-28 — Plan 05-03 complete (vendor commands + timeout loop)
 
-Progress: [██████████████] 67%
+Progress: [████████████████] 75%
 
 ## Performance Metrics
 
@@ -40,6 +40,7 @@ Progress: [██████████████] 67%
 | Phase 04-business-flows P02 | 4 | 2 tasks | 3 files |
 | Phase 05-human-takeover P01 | 2 | 2 tasks | 4 files |
 | Phase 05-human-takeover P02 | 3 | 2 tasks | 3 files |
+| Phase 05-human-takeover P03 | 5 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,10 @@ Recent decisions affecting current work:
 - [Phase 05-02]: solicitar_humano idempotent — if estado==humano already, returns early without re-notifying vendor
 - [Phase 05-02]: VENDEDOR_WHATSAPP opt-in — warning if unset, not error; tool still changes state even if WhatsApp notification is skipped
 - [Phase 05-02]: TOOLS_DEFINITION description lists explicit trigger phrases AND non-trigger guidance, same pattern as reiniciar_conversacion
+- [Phase 05-03]: procesar_comando_vendedor: only # prefix messages trigger command parsing — all other vendor messages silently dropped (vendor may chat on same number)
+- [Phase 05-03]: VENDEDOR_PHONE_NORM computed at module load — avoids per-request env lookup and normalizes once
+- [Phase 05-03]: Vendor routing uses continue unconditionally — vendor phone NEVER reaches client message pipeline or DB history
+- [Phase 05-03]: Startup call to check_and_apply_timeouts() before asyncio.create_task(timeout_loop()) — catches stale humano states from pre-restart period (Pitfall 3)
 
 ### Pending Todos
 
@@ -96,6 +101,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-28
-Stopped at: Completed 05-02-PLAN.md (Human Takeover — solicitar_humano tool + vendor notification). Phase 05 in progress, ready for Plan 03.
-Stopped at: Completed 05-01-PLAN.md (Human Takeover — ConversationState foundation + HT-04 state gate). Phase 05 in progress, ready for Plan 02.
+Stopped at: Completed 05-03-PLAN.md (Human Takeover — vendor commands + timeout loop). Phase 05 COMPLETE, ready for Phase 06.
 Resume file: None
