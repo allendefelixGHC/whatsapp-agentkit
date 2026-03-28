@@ -741,6 +741,25 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
     )
 
 
+async def reiniciar_conversacion(telefono: str) -> str:
+    """
+    Borra el historial de conversación completo y limpia el cache de sesión.
+    Llamar SOLO cuando el cliente pide explícitamente empezar de nuevo.
+    """
+    from agent.memory import limpiar_historial
+    from agent.session import _cache
+
+    # Limpiar historial en base de datos
+    await limpiar_historial(telefono)
+
+    # Limpiar cache de sesión (propiedades guardadas para agendar visita)
+    if telefono in _cache:
+        del _cache[telefono]
+
+    logger.info(f"Conversación reiniciada para {telefono}")
+    return "Historial limpiado exitosamente. El cliente puede empezar desde cero. Enviar la lista de calificación inicial inmediatamente."
+
+
 # Definición de herramientas para Claude tool_use
 TOOLS_DEFINITION = [
     {
@@ -838,5 +857,26 @@ TOOLS_DEFINITION = [
             },
             "required": ["telefono"],
         },
+    },
+    {
+        "name": "reiniciar_conversacion",
+        "description": (
+            "Borra el historial de conversación completo para reiniciar el flujo de calificación "
+            "desde cero. Llamar SOLO cuando el cliente pida explícitamente empezar de nuevo "
+            "(ej: 'empezar de nuevo', 'empezar desde cero', 'olvidate de todo', 'me equivoqué quiero cambiar todo'). "
+            "NO llamar para 'quiero buscar otra cosa' o 'ver algo diferente' — esos solo necesitan "
+            "volver al paso correspondiente del flujo sin borrar historial. "
+            "El teléfono del cliente está en el contexto interno del mensaje."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "telefono": {
+                    "type": "string",
+                    "description": "Teléfono del cliente (del contexto interno)"
+                }
+            },
+            "required": ["telefono"]
+        }
     },
 ]
