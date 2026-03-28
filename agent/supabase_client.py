@@ -5,8 +5,9 @@
 Módulo de acceso a Supabase para la tabla propiedades.
 Expone un cliente singleton y helpers tipados para queries y upserts.
 
-Todas las funciones son async y deben llamarse con await desde endpoints FastAPI.
-El cliente sync de supabase-py funciona correctamente en contexto async via httpx transport.
+El cliente supabase-py v2 es síncrono (usa httpx sync transport).
+Las funciones se declaran async para compatibilidad con FastAPI, pero las
+llamadas al SDK son síncronas y se ejecutan directamente.
 """
 
 import os
@@ -73,7 +74,7 @@ async def buscar_propiedades_db(
         query = query.eq("ambientes", ambientes)
 
     query = query.range(offset, offset + limite - 1)
-    response = await query.execute()
+    response = query.execute()
     return response.data or []
 
 
@@ -91,7 +92,7 @@ async def upsert_propiedades(propiedades: list[dict]) -> int:
     if not propiedades:
         return 0
     sb = get_supabase()
-    response = await sb.table("propiedades").upsert(
+    response = sb.table("propiedades").upsert(
         propiedades,
         on_conflict="propiedad_id",
     ).execute()
@@ -109,7 +110,7 @@ async def obtener_todas_propiedades() -> list[dict]:
         Lista completa de propiedades
     """
     sb = get_supabase()
-    response = await sb.table("propiedades").select("*").order(
+    response = sb.table("propiedades").select("*").order(
         "scraped_at", desc=True
     ).execute()
     return response.data or []
@@ -130,7 +131,7 @@ async def marcar_removidas(ids_activos: list[str]) -> int:
         logger.warning("marcar_removidas: lista de IDs activos vacía, no se elimina nada por seguridad")
         return 0
     sb = get_supabase()
-    response = await sb.table("propiedades").delete().not_.in_(
+    response = sb.table("propiedades").delete().not_.in_(
         "propiedad_id", ids_activos
     ).execute()
     count = len(response.data or [])

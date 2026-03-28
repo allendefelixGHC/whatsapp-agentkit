@@ -263,11 +263,13 @@ def _parsear_detalle_campos(html: str) -> dict:
     # ── #lista_informacion_basica ─────────────────────────────────────────────
     info_bloque = re.search(r'id="lista_informacion_basica"[^>]*>(.*?)</ul>', html, re.DOTALL)
     if info_bloque:
-        lis = re.findall(r'<li>([^<]+)</li>', info_bloque.group(1))
+        lis = re.findall(r'<li[^>]*>(.*?)</li>', info_bloque.group(1), re.DOTALL)
         info: dict[str, str] = {}
         for li in lis:
-            if ':' in li:
-                key, _, val = li.partition(':')
+            # Strip HTML tags (e.g. <i class="fa fa-check">) inside <li>
+            texto = re.sub(r'<[^>]+>', '', li).strip()
+            if ':' in texto:
+                key, _, val = texto.partition(':')
                 info[key.strip().lower()] = val.strip()
 
         if "ambientes" in info:
@@ -288,11 +290,12 @@ def _parsear_detalle_campos(html: str) -> dict:
     # ── #lista_superficies ────────────────────────────────────────────────────
     sup_bloque = re.search(r'id="lista_superficies"[^>]*>(.*?)</ul>', html, re.DOTALL)
     if sup_bloque:
-        lis = re.findall(r'<li>([^<]+)</li>', sup_bloque.group(1))
+        lis = re.findall(r'<li[^>]*>(.*?)</li>', sup_bloque.group(1), re.DOTALL)
         sups: dict[str, str] = {}
         for li in lis:
-            if ':' in li:
-                key, _, val = li.partition(':')
+            texto = re.sub(r'<[^>]+>', '', li).strip()
+            if ':' in texto:
+                key, _, val = texto.partition(':')
                 sups[key.strip().lower()] = val.strip()
 
         # "cubierta" → sup_cubierta
@@ -304,9 +307,12 @@ def _parsear_detalle_campos(html: str) -> dict:
             result["sup_total"] = sups[total_key]
 
     # ── Descripción ───────────────────────────────────────────────────────────
-    desc_match = re.search(r'class="[^"]*description[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL)
+    # Bertero stores description in id="prop-desc" with HTML-encoded content (&lt;p&gt; etc.)
+    desc_match = re.search(r'id="prop-desc"[^>]*>(.*?)</div>', html, re.DOTALL)
     if desc_match:
-        desc = re.sub(r'<[^>]+>', ' ', desc_match.group(1))
+        import html as html_mod
+        desc = html_mod.unescape(desc_match.group(1))
+        desc = re.sub(r'<[^>]+>', ' ', desc)
         desc = re.sub(r'\s+', ' ', desc).strip()
         if desc and len(desc) > 5:
             result["descripcion"] = desc[:1000]
