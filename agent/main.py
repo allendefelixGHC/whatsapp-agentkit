@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
 from agent.providers import obtener_proveedor
+from agent.takeover import obtener_estado
 from agent.dedup import es_duplicado
 from agent.utils import normalizar_telefono
 from agent.auth import verificar_firma_ghl
@@ -75,6 +76,9 @@ async def lifespan(app: FastAPI):
         logger.warning("El bot funcionara sin cache de propiedades hasta el primer refresh")
     logger.info(f"Servidor AgentKit corriendo en puerto {PORT}")
     logger.info(f"Proveedor de WhatsApp: {proveedor.__class__.__name__}")
+    vendedor_wa = os.getenv("VENDEDOR_WHATSAPP", "")
+    if not vendedor_wa:
+        logger.warning("VENDEDOR_WHATSAPP no configurado — human takeover notifications disabled")
     yield
 
 
@@ -161,6 +165,13 @@ async def webhook_handler(request: Request):
                 logger.warning(f"Rate limit excedido para {telefono_normalizado}")
                 await proveedor.enviar_mensaje(msg.telefono, RATE_LIMIT_MESSAGE)
                 continue  # No llamar a Claude API
+
+            # Human takeover gate (HT-04): si la conversacion esta en modo "humano",
+            # el bot NO responde — silencio total, sin guardar en historial
+            estado_conv = await obtener_estado(telefono_normalizado)
+            if estado_conv == "humano":
+                logger.info(f"Conversacion {telefono_normalizado} en modo HUMANO — bot en pausa")
+                continue  # Saltar completamente — no llamar a Claude, no responder, no guardar
 
             # Log con contexto de interacción
             if msg.imagen_url:
