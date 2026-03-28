@@ -9,6 +9,7 @@ Soporta mensajes de texto, botones y listas interactivas.
 
 import os
 import json
+import asyncio
 import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
@@ -19,7 +20,7 @@ from dotenv import load_dotenv
 from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
 from agent.providers import obtener_proveedor
-from agent.takeover import obtener_estado
+from agent.takeover import obtener_estado, procesar_comando_vendedor, check_and_apply_timeouts, timeout_loop
 from agent.dedup import es_duplicado
 from agent.utils import normalizar_telefono
 from agent.auth import verificar_firma_ghl
@@ -60,6 +61,11 @@ GHL_WEBHOOK_AUTH_STRICT = os.getenv("GHL_WEBHOOK_AUTH_STRICT", "false").lower() 
 # Si está vacío, la autenticación está desactivada en endpoints admin (modo dev)
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
+# Telefono del vendedor normalizado para deteccion de comandos (HT-05)
+# Si está vacío (VENDEDOR_WHATSAPP no configurado), el routing de comandos queda desactivado
+_vendedor_raw = os.getenv("VENDEDOR_WHATSAPP", "")
+VENDEDOR_PHONE_NORM = normalizar_telefono(_vendedor_raw) if _vendedor_raw else ""
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -79,6 +85,16 @@ async def lifespan(app: FastAPI):
     vendedor_wa = os.getenv("VENDEDOR_WHATSAPP", "")
     if not vendedor_wa:
         logger.warning("VENDEDOR_WHATSAPP no configurado — human takeover notifications disabled")
+    # Human takeover timeout (HT-05): limpiar estados humano expirados al arrancar + loop horario
+    # El check de startup atrapa estados stale de antes del restart (Pitfall 3)
+    try:
+        devueltas = await check_and_apply_timeouts(int(os.getenv("TAKEOVER_TIMEOUT_HOURS", "4")))
+        if devueltas:
+            logger.info(f"Startup: {len(devueltas)} conversaciones humano expiradas devueltas al bot")
+    except Exception as e:
+        logger.warning(f"Error checking takeover timeouts at startup: {e}")
+    asyncio.create_task(timeout_loop())
+    logger.info("Timeout loop de human takeover iniciado")
     yield
 
 
@@ -157,6 +173,15 @@ async def webhook_handler(request: Request):
             # Normalizar teléfono para operaciones de memoria (DB key canónica)
             # IMPORTANTE: msg.telefono original (con @s.whatsapp.net) se usa para enviar por Whapi
             telefono_normalizado = normalizar_telefono(msg.telefono)
+
+            # Vendor command routing (HT-05): mensajes del vendedor son comandos, no mensajes de cliente
+            # Va ANTES del rate limit — el vendedor no esta sujeto a rate limiting
+            if VENDEDOR_PHONE_NORM and telefono_normalizado == VENDEDOR_PHONE_NORM:
+                if msg.texto and msg.texto.strip().startswith("#"):
+                    await procesar_comando_vendedor(msg.texto, msg.telefono, proveedor)
+                # Tanto si es comando como si no, NUNCA procesar mensajes del vendedor como cliente
+                # NUNCA guardar mensajes del vendedor en historial de conversaciones
+                continue
 
             # Rate limiting (TECH-06): verificar límite de mensajes por teléfono por minuto
             # Usar teléfono normalizado como clave (conteo consistente sin importar el formato)
