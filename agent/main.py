@@ -23,6 +23,8 @@ from agent.dedup import es_duplicado
 from agent.utils import normalizar_telefono
 from agent.auth import verificar_firma_ghl
 from agent.limiter import verificar_rate_limit, RATE_LIMIT_MESSAGE
+from agent.tools import cargar_cache_desde_supabase
+from agent.scraper import scrape_and_persist
 from agent.ghl import (
     buscar_contacto_por_email,
     buscar_contacto_por_telefono,
@@ -53,12 +55,24 @@ WHAPI_WEBHOOK_SECRET = os.getenv("WHAPI_WEBHOOK_SECRET", "")
 # true: rechaza todos los webhooks GHL que no tengan firma válida
 GHL_WEBHOOK_AUTH_STRICT = os.getenv("GHL_WEBHOOK_AUTH_STRICT", "false").lower() == "true"
 
+# Token de autenticación para endpoints de administración (/admin/*)
+# Si está vacío, la autenticación está desactivada en endpoints admin (modo dev)
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Inicializa la base de datos al arrancar el servidor."""
+    """Inicializa la base de datos y carga el cache de propiedades al arrancar el servidor."""
     await inicializar_db()
     logger.info("Base de datos inicializada")
+    # Cargar cache de propiedades desde Supabase (TECH-07)
+    # Si SUPABASE_URL/KEY no están configurados, el servidor arranca igual (degradación graceful)
+    try:
+        await cargar_cache_desde_supabase()
+        logger.info("Cache de propiedades cargado desde Supabase")
+    except Exception as e:
+        logger.warning(f"No se pudo cargar cache de propiedades desde Supabase: {e}")
+        logger.warning("El bot funcionara sin cache de propiedades hasta el primer refresh")
     logger.info(f"Servidor AgentKit corriendo en puerto {PORT}")
     logger.info(f"Proveedor de WhatsApp: {proveedor.__class__.__name__}")
     yield
@@ -75,6 +89,30 @@ app = FastAPI(
 async def health_check():
     """Endpoint de salud para Railway/monitoreo."""
     return {"status": "ok", "service": "agentkit"}
+
+
+@app.post("/admin/refresh-properties")
+async def admin_refresh_properties(request: Request):
+    """Dispara scraping completo de Bertero + upsert a Supabase + recarga de cache.
+    Llamado por n8n Schedule Trigger cada hora (plan 02-03)."""
+    # Auth: requerir header X-Admin-Token si ADMIN_TOKEN está configurado
+    if ADMIN_TOKEN:
+        token = request.headers.get("X-Admin-Token", "")
+        if token != ADMIN_TOKEN:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        # 1. Scrapear Bertero + persistir en Supabase
+        stats = await scrape_and_persist()
+
+        # 2. Recargar cache en memoria desde Supabase
+        await cargar_cache_desde_supabase()
+
+        logger.info(f"Refresh de propiedades completado: {stats}")
+        return {"status": "ok", "stats": stats}
+    except Exception as e:
+        logger.error(f"Error en refresh de propiedades: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/webhook")
