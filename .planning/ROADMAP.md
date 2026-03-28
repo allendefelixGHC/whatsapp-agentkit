@@ -31,12 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Un mismo numero de telefono en distintos formatos (+54, 54, 0, sin prefijo) se resuelve siempre al mismo contacto
   4. Webhooks de origen desconocido (sin token valido de Whapi o GHL) son rechazados con 401
   5. Si un usuario envia mas de N mensajes por minuto, el bot no llama a Claude API y responde con mensaje de rate limit
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 01-01: Message deduplication and phone normalization
-- [ ] 01-02: Webhook authentication and rate limiting
-- [ ] 01-03: Conversation history expansion
+- [ ] 01-01-PLAN.md — Message deduplication, phone normalization, and history expansion (TECH-01, TECH-02, TECH-03)
+- [ ] 01-02-PLAN.md — Webhook authentication and rate limiting (TECH-04, TECH-05, TECH-06)
 
 ### Phase 2: Supabase Data Foundation
 **Goal**: El bot responde con datos de propiedades completos y actualizados desde Supabase en menos de 1 segundo
@@ -123,7 +122,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Technical Hardening | 0/3 | Not started | - |
+| 1. Technical Hardening | 0/2 | Not started | - |
 | 2. Supabase Data Foundation | 0/4 | Not started | - |
 | 3. Audio & Smart Media | 0/2 | Not started | - |
 | 4. Business Flows | 0/2 | Not started | - |
