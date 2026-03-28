@@ -25,6 +25,7 @@ from agent.dedup import es_duplicado
 from agent.utils import normalizar_telefono
 from agent.auth import verificar_firma_ghl
 from agent.limiter import verificar_rate_limit, RATE_LIMIT_MESSAGE
+from agent.business_hours import esta_en_horario, AFTER_HOURS_MESSAGE
 from agent.tools import cargar_cache_desde_supabase
 from agent.scraper import scrape_and_persist
 from agent.ghl import (
@@ -65,6 +66,10 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 # Si está vacío (VENDEDOR_WHATSAPP no configurado), el routing de comandos queda desactivado
 _vendedor_raw = os.getenv("VENDEDOR_WHATSAPP", "")
 VENDEDOR_PHONE_NORM = normalizar_telefono(_vendedor_raw) if _vendedor_raw else ""
+
+# Deteccion de horario de atencion de Bertero (FU-03)
+# Si false, el gate de horario se desactiva completamente (para testing fuera de horario)
+BUSINESS_HOURS_ENABLED = os.getenv("BUSINESS_HOURS_ENABLED", "true").lower() == "true"
 
 
 @asynccontextmanager
@@ -190,6 +195,24 @@ async def webhook_handler(request: Request):
                 logger.warning(f"Rate limit excedido para {telefono_normalizado}")
                 await proveedor.enviar_mensaje(msg.telefono, RATE_LIMIT_MESSAGE)
                 continue  # No llamar a Claude API
+
+            # Business hours gate (FU-03): fuera de horario, auto-responder con horario
+            # + registrar para seguimiento al dia siguiente
+            # Va DESPUES de vendor routing y rate limit, ANTES de takeover gate
+            # El vendedor nunca llega aqui — fue routeado con continue arriba
+            if BUSINESS_HOURS_ENABLED and not esta_en_horario():
+                # Registrar para follow-up al dia siguiente (FU-03: "registra al lead para seguimiento")
+                try:
+                    from agent.followup import programar_followup
+                    await programar_followup(telefono_normalizado, [])
+                except ImportError:
+                    # followup.py no existe todavia (se crea en plan 06-03) — skip silently
+                    pass
+                except Exception as e:
+                    logger.error(f"Error programando follow-up after-hours para {telefono_normalizado}: {e}")
+                await proveedor.enviar_mensaje(msg.telefono, AFTER_HOURS_MESSAGE)
+                logger.info(f"After-hours: auto-response sent to {telefono_normalizado}")
+                continue  # No llamar a Claude, no guardar en historial
 
             # Human takeover gate (HT-04): si la conversacion esta en modo "humano",
             # el bot NO responde — silencio total, sin guardar en historial
