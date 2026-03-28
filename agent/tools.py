@@ -8,6 +8,7 @@ Funciones de FAQ, búsqueda de propiedades en tiempo real, agendamiento de citas
 
 import os
 import re
+import time
 import yaml
 import logging
 import httpx
@@ -15,15 +16,16 @@ from datetime import datetime
 
 from agent.session import guardar_propiedades, obtener_propiedades
 from agent.providers.base import Respuesta, SeccionLista, FilaLista
+from agent.supabase_client import obtener_todas_propiedades
 
 logger = logging.getLogger("agentkit")
 
 BASE_URL = "https://www.inmobiliariabertero.com.ar"
 
-# Cache de propiedades — se refresca cada 10 minutos
-_propiedades_cache = []
-_propiedades_cache_time = 0
-CACHE_TTL = 600  # 10 minutos
+# Cache de propiedades — se carga desde Supabase al iniciar el servidor (TECH-07)
+# y se recarga después de cada /admin/refresh-properties
+_propiedades_cache: list[dict] = []
+_propiedades_cache_time: float = 0
 
 # Mapeo de tipos de propiedad a IDs de Tokko Broker
 TIPOS_PROPIEDAD = {
@@ -93,6 +95,19 @@ def buscar_en_knowledge(consulta: str) -> str:
     return "No encontré información específica sobre eso en mis archivos."
 
 
+async def cargar_cache_desde_supabase() -> None:
+    """
+    Carga todas las propiedades desde Supabase al cache en memoria.
+    Llamado por main.py lifespan al iniciar el servidor (TECH-07) y después de
+    /admin/refresh-properties.
+    """
+    global _propiedades_cache, _propiedades_cache_time
+    propiedades = await obtener_todas_propiedades()
+    _propiedades_cache = propiedades
+    _propiedades_cache_time = time.time()
+    logger.info(f"Cache cargado desde Supabase: {len(propiedades)} propiedades")
+
+
 async def buscar_propiedades(
     tipo: str = "",
     zona: str = "",
@@ -105,21 +120,20 @@ async def buscar_propiedades(
     telefono: str = "",
 ) -> str:
     """
-    Busca propiedades en tiempo real desde la web de Inmobiliaria Bertero.
-    La web no filtra server-side, así que descargamos todo y filtramos acá.
+    Busca propiedades en el cache en memoria (cargado desde Supabase al iniciar).
     Usa pagina=2, pagina=3, etc. para ver más resultados.
+    Si el cache está vacío (Supabase no configurado), cae en scraping en vivo como fallback.
     """
     try:
         global _propiedades_cache, _propiedades_cache_time
-        import time
 
-        # Usar cache si está fresco (menos de 10 minutos)
-        ahora = time.time()
-        if _propiedades_cache and (ahora - _propiedades_cache_time) < CACHE_TTL:
+        # Leer desde cache en memoria (cargado desde Supabase)
+        if _propiedades_cache:
             todas = list(_propiedades_cache)
-            logger.info(f"Propiedades desde cache: {len(todas)}")
+            logger.info(f"Propiedades desde cache Supabase: {len(todas)}")
         else:
-            # Descargar todas las páginas de propiedades
+            # Fallback: scraping en vivo si Supabase no está configurado
+            logger.warning("Cache Supabase vacío — fallback a scraping en vivo")
             todas = []
             async with httpx.AsyncClient(timeout=15.0) as client:
                 for page in range(1, 5):  # Hasta 4 páginas (80 propiedades)
@@ -130,10 +144,9 @@ async def buscar_propiedades(
                     if not nuevas:
                         break
                     todas.extend(nuevas)
-
             _propiedades_cache = list(todas)
-            _propiedades_cache_time = ahora
-            logger.info(f"Total propiedades parseadas y cacheadas: {len(todas)}")
+            _propiedades_cache_time = time.time()
+            logger.info(f"Fallback: {len(todas)} propiedades scrapeadas y cacheadas")
 
         # Filtrar por tipo
         if tipo:
@@ -292,7 +305,8 @@ async def buscar_propiedades(
 
 async def obtener_detalle_propiedad(propiedad_id: str) -> str:
     """
-    Obtiene el detalle completo de una propiedad específica.
+    Obtiene el detalle completo de una propiedad desde el cache en memoria (cargado desde Supabase).
+    Si la propiedad no está en cache, retorna un mensaje con el link directo a Bertero.
 
     Args:
         propiedad_id: ID de la propiedad (ej: "7778974")
@@ -301,40 +315,86 @@ async def obtener_detalle_propiedad(propiedad_id: str) -> str:
         Texto formateado con los detalles de la propiedad
     """
     try:
-        # Primero buscar el link completo en el listado
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            # Buscar en el listado para obtener el slug completo
-            r = await client.get(f"{BASE_URL}/Propiedades", params={"q": "", "p": "1"})
-            html = r.text
+        # Buscar en el cache en memoria (fuente: Supabase)
+        prop = None
+        for p in _propiedades_cache:
+            # El cache Supabase usa "propiedad_id" como clave; el cache legacy usa "id"
+            pid = p.get("propiedad_id") or p.get("id", "")
+            if str(pid) == str(propiedad_id):
+                prop = p
+                break
 
-            # Buscar el link que contiene el ID
-            pattern = rf'href="(/p/{propiedad_id}[^"]*)"'
-            match = re.search(pattern, html)
+        if not prop:
+            link = f"/p/{propiedad_id}"
+            return (
+                f"No encontré la propiedad {propiedad_id} en el catálogo actual. "
+                f"Podés verla en: {BASE_URL}{link}"
+            )
 
-            if not match:
-                # Probar buscando en más páginas
-                for page in range(2, 5):
-                    r = await client.get(f"{BASE_URL}/Propiedades", params={"q": "", "p": str(page)})
-                    match = re.search(pattern, r.text)
-                    if match:
-                        break
+        # Formatear datos del cache en el mismo formato que _parsear_detalle producía
+        resultado = ""
 
-            if not match:
-                return f"No encontré la propiedad con ID {propiedad_id}."
+        # Título: tipo + operación + zona
+        tipo = prop.get("tipo", "Propiedad")
+        operacion = prop.get("operacion", "")
+        zona = prop.get("zona", "")
+        titulo_parts = [x for x in [tipo, operacion, zona] if x]
+        resultado += " en ".join(titulo_parts) + "\n\n"
 
-            link = match.group(1)
-            r = await client.get(f"{BASE_URL}{link}")
+        # Precio
+        precio = prop.get("precio", "")
+        if precio:
+            resultado += f"Precio: {precio}\n"
 
-            if r.status_code != 200:
-                return f"No pude obtener los detalles de la propiedad. Podés verla en: {BASE_URL}{link}"
+        # Dirección
+        direccion = prop.get("direccion", "")
+        if direccion:
+            resultado += f"Dirección: {direccion}\n"
 
-            return _parsear_detalle(r.text, link)
+        # Características
+        specs = []
+        ambientes_val = prop.get("ambientes")
+        if ambientes_val:
+            specs.append(f"Ambientes: {ambientes_val}")
+        dormitorios = prop.get("dormitorios")
+        if dormitorios:
+            specs.append(f"Dormitorios: {dormitorios}")
+        banos = prop.get("banos")
+        if banos:
+            specs.append(f"Baños: {banos}")
+        sup_cubierta = prop.get("sup_cubierta")
+        if sup_cubierta:
+            specs.append(f"Sup. cubierta: {sup_cubierta} m²")
+        sup_total = prop.get("sup_total")
+        if sup_total:
+            specs.append(f"Sup. total: {sup_total} m²")
+        antiguedad = prop.get("antiguedad")
+        if antiguedad:
+            specs.append(f"Antigüedad: {antiguedad} años")
+        expensas = prop.get("expensas")
+        if expensas:
+            specs.append(f"Expensas: ${expensas}")
+
+        if specs:
+            resultado += "\n".join(specs) + "\n"
+
+        # Descripción
+        descripcion = prop.get("descripcion", "")
+        if descripcion and len(descripcion) > 10:
+            resultado += f"\nDescripción: {descripcion[:500]}\n"
+
+        # Link
+        link = prop.get("link", f"/p/{propiedad_id}")
+        resultado += f"\nVer fotos y más detalles: {BASE_URL}{link}\n"
+
+        return resultado
 
     except Exception as e:
         logger.error(f"Error obteniendo detalle de propiedad {propiedad_id}: {e}")
         return "Hubo un error al consultar los detalles. Revisá la web: www.inmobiliariabertero.com.ar/Propiedades"
 
 
+# Legacy — usado como referencia y por fallback de scraping en vivo; scraper.py maneja el scraping persistente
 def _parsear_listado(html: str) -> list[dict]:
     """
     Parsea el HTML del listado de propiedades.
@@ -413,6 +473,7 @@ def _parsear_listado(html: str) -> list[dict]:
     return propiedades
 
 
+# Legacy — usado como referencia; scraper.py maneja el scraping de detalle ahora
 def _parsear_detalle(html: str, link: str) -> str:
     """Parsea el HTML de detalle de una propiedad y retorna texto formateado."""
     resultado = ""
