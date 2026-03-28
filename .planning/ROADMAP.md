@@ -47,13 +47,12 @@ Plans:
   3. Propiedades nuevas en la web de Bertero aparecen en el bot dentro de 1 hora (n8n refresh automatico)
   4. El precio mostrado al cliente coincide exactamente con el precio de la pagina de detalle de la propiedad
   5. Al iniciar el servidor, las propiedades ya estan cargadas en cache (warm-up desde Supabase)
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 02-01: Deep scraper for Bertero website (listing + detail pages)
-- [ ] 02-02: Supabase schema and data ingestion
-- [ ] 02-03: Bot queries Supabase + cache warm-up
-- [ ] 02-04: n8n hourly refresh workflow
+- [ ] 02-01-PLAN.md — Deep scraper + Supabase client module + SQL schema (DATA-01, DATA-02, DATA-05)
+- [ ] 02-02-PLAN.md — Wire bot to Supabase queries + cache warm-up + admin refresh endpoint (DATA-03, TECH-07)
+- [ ] 02-03-PLAN.md — n8n hourly refresh workflow + end-to-end verification (DATA-04)
 
 ### Phase 3: Audio & Smart Media
 **Goal**: El bot entiende audios y fotos de los clientes y los procesa como parte natural del flujo de calificacion
@@ -123,7 +122,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Technical Hardening | 0/2 | Not started | - |
-| 2. Supabase Data Foundation | 0/4 | Not started | - |
+| 2. Supabase Data Foundation | 0/3 | Not started | - |
 | 3. Audio & Smart Media | 0/2 | Not started | - |
 | 4. Business Flows | 0/2 | Not started | - |
 | 5. Human Takeover | 0/3 | Not started | - |
