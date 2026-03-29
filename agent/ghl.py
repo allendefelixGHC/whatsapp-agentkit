@@ -241,7 +241,12 @@ async def crear_oportunidad(
                     "stage": "Lead nuevo",
                 }
             else:
-                logger.error(f"Error GHL oportunidad: {r.status_code} — {r.text}")
+                # Oportunidad duplicada no es un error real — el contacto ya existe en el pipeline
+                error_body = r.text
+                if "duplicate" in error_body.lower():
+                    logger.info(f"Oportunidad GHL ya existe para contacto — no es error, es duplicado")
+                    return {"duplicada": True, "nombre": nombre_opp}
+                logger.error(f"Error GHL oportunidad: {r.status_code} — {error_body}")
                 return {"error": f"Error {r.status_code}"}
     except Exception as e:
         logger.error(f"Error creando oportunidad GHL: {e}")

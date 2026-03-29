@@ -683,6 +683,8 @@ async def registrar_lead_ghl(
     resultado += f"Vendedor asignado: {contacto.get('vendedor', 'No asignado')}\n"
     if oportunidad.get("id"):
         resultado += f"Oportunidad creada: {oportunidad.get('nombre', '')}\n"
+    elif oportunidad.get("duplicada"):
+        resultado += f"El contacto ya tiene una oportunidad abierta en el CRM (no se creó duplicada).\n"
     # Diferenciar texto según si hay propiedad específica o es consulta general
     if propiedad_id or propiedad_link:
         resultado += f"Link de booking para agendar visita (pre-llenado con nombre y email): {booking_link}\n"
