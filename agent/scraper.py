@@ -71,7 +71,8 @@ async def scrape_and_persist() -> dict:
 
             # Campos exclusivos del detalle
             for campo in ("ambientes", "dormitorios", "banos", "sup_cubierta",
-                          "sup_total", "antiguedad", "expensas", "descripcion"):
+                          "sup_total", "antiguedad", "expensas", "descripcion",
+                          "productor"):
                 if campo in detalle:
                     merged[campo] = detalle[campo]
 
