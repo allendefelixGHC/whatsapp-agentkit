@@ -264,6 +264,16 @@ async def webhook_handler(request: Request):
                 contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía, mencioná que sos asistente virtual de Bertero, y enviale la lista interactiva de opciones.]"
             else:
                 contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. REGLAS ESTRICTAS: 1) NUNCA presentarte como Lucía ni decir 'Soy Lucía' ni 'asistente virtual de Bertero' — el cliente ya te conoce. 2) Saludalo directamente y enviale la lista interactiva de opciones (paso 1 del flujo) para que elija qué necesita. 3) Si ya dijo qué busca en este mensaje, avanzá directo al siguiente paso del flujo sin re-presentarte.]"
+            # Detectar estado del flujo basado en el último mensaje del bot
+            if historial:
+                ultimo_bot = next((m for m in reversed(historial) if m["role"] == "assistant"), None)
+                if ultimo_bot:
+                    ultimo_texto = ultimo_bot["content"]
+                    if "inmobiliariabertero.com.ar/p/" in ultimo_texto:
+                        contexto += "\n[ESTADO FLUJO: El bot ACABA de mostrar propiedades al cliente. Si el cliente responde con una afirmación (sí, dale, bueno, claro, ok) está diciendo que quiere ver detalles de alguna. Mostrar enviar_lista con las propiedades para que elija. NUNCA volver al menú principal.]"
+                    elif "Agendar visita" in ultimo_texto or "btn_agendar" in ultimo_texto:
+                        contexto += "\n[ESTADO FLUJO: El bot ofreció agendar visita o hablar con asesor. Continuar ese flujo.]"
+
             if msg.lista_id:
                 contexto += f"\n[El cliente seleccionó de una lista interactiva. ID seleccionado: {msg.lista_id}]"
             elif msg.boton_id:
