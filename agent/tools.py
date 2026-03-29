@@ -193,64 +193,92 @@ async def buscar_propiedades(
                 filtradas.append(p)
             todas = filtradas
 
+        # ── Auto-relajación de filtros cuando no hay resultados ──────────────
+        # Reglas: NUNCA cruzar tipo ni operación. Relajar en este orden:
+        # 1. Quitar zona (mantener tipo + ambientes + operación + precio)
+        # 2. Quitar ambientes (mantener tipo + operación + precio)
+        # 3. Relajar precio ±50% (mantener tipo + operación)
+        # 4. Quitar precio (mantener tipo + operación)
+        # 5. SIN_RESULTADOS — ofrecer agendar llamada o recibir novedades
         filtro_relajado = ""
         if not todas:
-            # Auto-relajar filtros: primero quitar zona, después quitar tipo
             todas_backup = list(_propiedades_cache) if _propiedades_cache else []
 
-            # Intento 1: quitar zona, mantener tipo + operación + precio
-            if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
-                relajadas = list(todas_backup)
+            # Helper: aplicar filtros base (tipo + operación, siempre se mantienen)
+            def _filtrar_base(props):
+                result = list(props)
                 if tipo:
                     tipo_lower = tipo.lower().strip()
                     tipo_map = {"depto": "departamento", "dpto": "departamento", "lote": "terreno", "galpón": "galpon"}
                     tipo_buscar = tipo_map.get(tipo_lower, tipo_lower)
-                    relajadas = [p for p in relajadas if tipo_buscar in p["tipo"].lower()]
+                    result = [p for p in result if tipo_buscar in p["tipo"].lower()]
                 if operacion:
                     op_lower = operacion.lower().strip()
                     op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
                     op_buscar = op_map.get(op_lower, op_lower)
-                    relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
+                    result = [p for p in result if op_buscar in p["operacion"].lower()]
+                return result
+
+            def _filtrar_precio(props, p_min, p_max):
+                return [p for p in props if p.get("precio_num", 0) > 0
+                        and (not p_min or p["precio_num"] >= p_min)
+                        and (not p_max or p["precio_num"] <= p_max)]
+
+            def _filtrar_ambientes(props, amb):
+                if not amb:
+                    return props
+                try:
+                    return [p for p in props if (p.get("ambientes") or 0) == int(amb)]
+                except ValueError:
+                    return props
+
+            tipo_texto = tipo or "propiedades"
+            zona_texto = zona or "esa zona"
+
+            # Intento 1: quitar zona, mantener tipo + ambientes + operación + precio
+            if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
+                relajadas = _filtrar_base(todas_backup)
+                relajadas = _filtrar_ambientes(relajadas, ambientes)
                 if precio_min_num or precio_max_num:
-                    relajadas = [p for p in relajadas if p.get("precio_num", 0) > 0
-                                 and (not precio_min_num or p["precio_num"] >= precio_min_num)
-                                 and (not precio_max_num or p["precio_num"] <= precio_max_num)]
+                    relajadas = _filtrar_precio(relajadas, precio_min_num, precio_max_num)
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré propiedades en {zona}, pero hay opciones en otras zonas:\n\n"
+                    filtro_relajado = f"No encontré {tipo_texto} en {zona}, pero hay opciones en otras zonas:\n\n"
 
-            # Intento 2: quitar zona + tipo, mantener operación + precio
-            if not todas and operacion:
-                relajadas = list(todas_backup)
-                op_lower = operacion.lower().strip()
-                op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
-                op_buscar = op_map.get(op_lower, op_lower)
-                relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
+            # Intento 2: quitar ambientes, mantener tipo + operación + precio
+            if not todas and ambientes:
+                relajadas = _filtrar_base(todas_backup)
+                if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
+                    relajadas = [p for p in relajadas if zona.lower() in p["zona"].lower()]
                 if precio_min_num or precio_max_num:
-                    relajadas = [p for p in relajadas if p.get("precio_num", 0) > 0
-                                 and (not precio_min_num or p["precio_num"] >= precio_min_num)
-                                 and (not precio_max_num or p["precio_num"] <= precio_max_num)]
+                    relajadas = _filtrar_precio(relajadas, precio_min_num, precio_max_num)
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré {tipo or 'propiedades'} en {zona or 'esa zona'}, pero mirá lo que tenemos en {operacion}:\n\n"
+                    filtro_relajado = f"No encontré {tipo_texto} de {ambientes} ambientes en ese rango, pero hay {tipo_texto} con otros ambientes:\n\n"
 
-            # Intento 3: quitar zona + tipo + precio, solo operación
-            if not todas and operacion:
-                relajadas = list(todas_backup)
-                op_lower = operacion.lower().strip()
-                op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
-                op_buscar = op_map.get(op_lower, op_lower)
-                relajadas = [p for p in relajadas if op_buscar in p["operacion"].lower()]
+            # Intento 3: relajar precio ±50%, mantener tipo + operación
+            if not todas and (precio_min_num or precio_max_num):
+                relajadas = _filtrar_base(todas_backup)
+                if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
+                    relajadas = [p for p in relajadas if zona.lower() in p["zona"].lower()]
+                # Expandir rango: -50% del min, +50% del max
+                expanded_min = int(precio_min_num * 0.5) if precio_min_num else 0
+                expanded_max = int(precio_max_num * 1.5) if precio_max_num else 0
+                relajadas = _filtrar_precio(relajadas, expanded_min, expanded_max)
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré con esos filtros exactos, pero mirá lo que tenemos en {operacion}:\n\n"
+                    filtro_relajado = f"No encontré {tipo_texto} en el rango exacto, pero hay opciones en precios cercanos:\n\n"
 
-            # Si no hay NADA en la misma operación, NO mostrar otra operación.
-            # Devolver mensaje honesto para que el agente ofrezca agendar llamada o recibir novedades.
+            # Intento 4: quitar precio, mantener tipo + operación
+            if not todas:
+                relajadas = _filtrar_base(todas_backup)
+                if relajadas:
+                    todas = relajadas
+                    filtro_relajado = f"No encontré {tipo_texto} con esos filtros exactos, pero tenemos {len(relajadas)} {tipo_texto} en {operacion or 'nuestro catálogo'}:\n\n"
+
+            # Si no hay NADA del mismo tipo+operación → SIN_RESULTADOS
             if not todas:
                 op_texto = operacion or "esa operación"
-                tipo_texto = tipo or "propiedades"
-                zona_texto = zona or "esa zona"
                 return (
                     f"SIN_RESULTADOS_OPERACION: No tenemos {tipo_texto} en {op_texto} disponibles en este momento"
                     f"{f' en {zona_texto}' if zona else ''}.\n"
@@ -258,7 +286,7 @@ async def buscar_propiedades(
                     f"1) 'Agendar llamada'(id:btn_agendar_llamada) para hablar con un asesor que pueda ayudarlo, "
                     f"2) 'Recibir novedades'(id:btn_recibir_novedades) para que le avisemos cuando tengamos "
                     f"{tipo_texto} en {op_texto}{f' en {zona_texto}' if zona else ''}. "
-                    f"NUNCA mostrar propiedades de otra operación (ej: no mostrar ventas si busca alquiler).]"
+                    f"NUNCA mostrar propiedades de otra operación ni de otro tipo.]"
                 )
 
         total_encontradas = len(todas)
