@@ -168,11 +168,12 @@ async def buscar_propiedades(
             zona_lower = zona.lower().strip()
             todas = [p for p in todas if zona_lower in p["zona"].lower()]
 
-        # Filtrar por ambientes (>= valor pedido, ej: "3" retorna 3, 4, 5+)
+        # Filtrar por ambientes (valor exacto — estándar ZonaProp/Argenprop/ML Argentina)
+        # "3 ambientes" = solo 3, no 4 ni 5. Consistente con cómo buscan los argentinos.
         if ambientes:
             try:
-                amb_min = int(ambientes)
-                todas = [p for p in todas if (p.get("ambientes") or 0) >= amb_min]
+                amb_val = int(ambientes)
+                todas = [p for p in todas if (p.get("ambientes") or 0) == amb_val]
             except ValueError:
                 pass  # Si no es número, ignorar filtro
 
@@ -886,7 +887,7 @@ TOOLS_DEFINITION = [
                 },
                 "ambientes": {
                     "type": "string",
-                    "description": "Cantidad de ambientes (1-6)",
+                    "description": "Cantidad exacta de ambientes (1-6). Filtro exacto: '3' muestra solo 3 ambientes.",
                 },
                 "pagina": {
                     "type": "integer",
