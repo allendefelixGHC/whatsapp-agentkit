@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS propiedades (
     antiguedad      TEXT,                       -- Antigüedad, ej: "36 Años"
     expensas        TEXT,                       -- Expensas mensuales, ej: "$ 109.000"
     descripcion     TEXT,                       -- Descripción de la propiedad (máx 1000 chars)
+    productor       TEXT,                       -- Nombre del productor/asesor asignado
     scraped_at      TIMESTAMPTZ DEFAULT NOW()   -- Timestamp del último scraping
 );
 

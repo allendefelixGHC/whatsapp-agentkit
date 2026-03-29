@@ -306,6 +306,13 @@ def _parsear_detalle_campos(html: str) -> dict:
         if total_key:
             result["sup_total"] = sups[total_key]
 
+    # ── Productor/Asesor ───────────────────────────────────────────────────────
+    productor_match = re.search(r'id="producer_name"[^>]*>(.*?)</div>', html, re.DOTALL)
+    if productor_match:
+        productor = re.sub(r'<[^>]+>', '', productor_match.group(1)).strip()
+        if productor:
+            result["productor"] = productor
+
     # ── Descripción ───────────────────────────────────────────────────────────
     # Bertero stores description in id="prop-desc" with HTML-encoded content (&lt;p&gt; etc.)
     desc_match = re.search(r'id="prop-desc"[^>]*>(.*?)</div>', html, re.DOTALL)
