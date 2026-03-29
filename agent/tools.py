@@ -319,6 +319,8 @@ async def buscar_propiedades(
 
         if fin < total_encontradas:
             resultado += f"Hay {total_encontradas - fin} propiedades más. Pedime 'ver más' para la siguiente página.\n"
+        else:
+            resultado += f"[TODAS_MOSTRADAS: Son todas las propiedades disponibles con estos filtros. NO hay más. NO ofrecer 'ver más'. NO inventar propiedades adicionales.]\n"
 
         # Guardar propiedades mostradas en cache de sesión para lista de visitas
         if telefono:
