@@ -31,6 +31,7 @@ from agent.scraper import scrape_and_persist
 from agent.ghl import (
     buscar_contacto_por_email,
     buscar_contacto_por_telefono,
+    buscar_datos_contacto_por_telefono,
     buscar_oportunidad_por_contacto,
     mover_oportunidad,
     obtener_detalles_oportunidad,
@@ -247,6 +248,18 @@ async def webhook_handler(request: Request):
             contexto = f"[CONTEXTO INTERNO - NO MOSTRAR AL CLIENTE: teléfono del cliente es {msg.telefono}]"
             if fuera_de_horario:
                 contexto += "\n[FUERA DE HORARIO: Estamos fuera del horario de atencion. No hay asesores disponibles para llamadas ni consultas en vivo. Seguir atendiendo al cliente con TODA la funcionalidad (propiedades, precios, visitas, calificacion). Si pide hablar con un humano o agendar llamada, NO hacer takeover — en su lugar registrar como lead y agendar callback para el proximo dia habil.]"
+            # Buscar datos del cliente en GHL (CRM) para no volver a pedir nombre/email
+            datos_crm = None
+            try:
+                datos_crm = await buscar_datos_contacto_por_telefono(telefono_normalizado)
+            except Exception as e:
+                logger.debug(f"Error buscando datos CRM para {telefono_normalizado}: {e}")
+            if datos_crm and datos_crm.get("nombre"):
+                contexto += f"\n[DATOS CRM: El cliente ya está registrado. Nombre: {datos_crm['nombre']}"
+                if datos_crm.get("email"):
+                    contexto += f", Email: {datos_crm['email']}"
+                contexto += ". NO volver a pedir estos datos — usarlos directamente.]"
+
             if es_cliente_nuevo:
                 contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía, mencioná que sos asistente virtual de Bertero, y enviale la lista interactiva de opciones.]"
             else:

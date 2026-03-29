@@ -385,6 +385,12 @@ async def buscar_contacto_por_email(email: str) -> str | None:
 
 async def buscar_contacto_por_telefono(telefono: str) -> str | None:
     """Busca un contacto por teléfono. Retorna el contactId o None."""
+    datos = await buscar_datos_contacto_por_telefono(telefono)
+    return datos.get("id") if datos else None
+
+
+async def buscar_datos_contacto_por_telefono(telefono: str) -> dict | None:
+    """Busca un contacto por teléfono. Retorna dict con id, nombre, email o None."""
     if not GHL_API_KEY or not telefono:
         return None
 
@@ -408,7 +414,13 @@ async def buscar_contacto_por_telefono(telefono: str) -> str | None:
             if r.status_code == 200:
                 contacts = r.json().get("contacts", [])
                 if contacts:
-                    return contacts[0]["id"]
+                    c = contacts[0]
+                    nombre = f"{c.get('firstName', '')} {c.get('lastName', '')}".strip()
+                    return {
+                        "id": c.get("id", ""),
+                        "nombre": nombre,
+                        "email": c.get("email", ""),
+                    }
             return None
     except Exception as e:
         logger.error(f"Error buscando contacto por teléfono: {e}")
