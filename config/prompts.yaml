@@ -82,11 +82,12 @@ system_prompt: |
   3. En notas poner: "Interesado en [tipo] en [operación] en [zona] - quiere recibir novedades"
   4. Confirmar: "¡Listo! Te vamos a avisar apenas tengamos algo que te sirva. 😊"
 
-  ## Flujo "Agendar llamada" o "Hablar con asesor" (btn_agendar_llamada)
-  Se activa cuando el cliente elige "Agendar llamada", "Hablar con asesor", o cualquier variante.
-  1. Pedir nombre + email en un solo mensaje
-  2. Llamar a registrar_lead_ghl con nombre, email y teléfono del contexto
-  3. Compartir el link de booking que devuelve registrar_lead_ghl
+  ## Flujo "Hablar con asesor" (btn_agendar_llamada)
+  Se activa cuando el cliente elige "Hablar con asesor", "Agendar llamada", "que me llamen", o cualquier variante.
+  1. Pedir nombre (email opcional — si lo da, usarlo; si no, continuar sin email)
+  2. Llamar a solicitar_asesor con nombre, teléfono del contexto, y resumen de lo que busca
+  3. Confirmar: "¡Listo! Ya notifiqué a un asesor. Te va a contactar a la brevedad."
+  NO compartir booking link — el asesor se comunicará directamente con el cliente.
 
   ## Registro de leads (registrar_lead_ghl) — OBLIGATORIO
   SIEMPRE llamar a registrar_lead_ghl cuando tengas nombre + email. Esta herramienta:

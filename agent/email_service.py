@@ -118,3 +118,76 @@ def enviar_notificacion_vendedor(
     </div>
     """
     return _enviar_email(VENDEDOR_EMAIL, asunto, cuerpo)
+
+
+def enviar_notificacion_asesor(
+    nombre_cliente: str,
+    telefono_cliente: str,
+    email_cliente: str = "",
+    operacion: str = "",
+    resumen: str = "",
+    propiedad_direccion: str = "",
+    propiedad_link: str = "",
+) -> bool:
+    """Envía email al asesor/admin con resumen completo del cliente que quiere hablar."""
+    asunto = f"📞 Cliente quiere hablar con asesor — {nombre_cliente}"
+    # Construir filas de la tabla solo con datos disponibles
+    filas = f"""
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>👤 Nombre:</strong></td>
+                <td style="padding: 8px 0;">{nombre_cliente}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>📱 Teléfono:</strong></td>
+                <td style="padding: 8px 0;">{telefono_cliente}</td>
+            </tr>"""
+    if email_cliente:
+        filas += f"""
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>📧 Email:</strong></td>
+                <td style="padding: 8px 0;">{email_cliente}</td>
+            </tr>"""
+    if operacion:
+        filas += f"""
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>🏷️ Operación:</strong></td>
+                <td style="padding: 8px 0;">{operacion}</td>
+            </tr>"""
+    if propiedad_direccion:
+        filas += f"""
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>🏠 Propiedad:</strong></td>
+                <td style="padding: 8px 0;">{propiedad_direccion}</td>
+            </tr>"""
+    if propiedad_link:
+        filas += f"""
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>🔗 Link:</strong></td>
+                <td style="padding: 8px 0;"><a href="{propiedad_link}">{propiedad_link}</a></td>
+            </tr>"""
+    if resumen:
+        filas += f"""
+            <tr>
+                <td style="padding: 8px 15px 8px 0;"><strong>📝 Resumen:</strong></td>
+                <td style="padding: 8px 0;">{resumen}</td>
+            </tr>"""
+
+    cuerpo = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2c3e50;">📞 Nuevo cliente quiere hablar con un asesor</h2>
+        <p style="font-size: 16px; color: #333;">
+            Un cliente solicitó hablar con un asesor a través del bot de WhatsApp.
+        </p>
+        <table style="font-size: 15px; color: #555; border-collapse: collapse; margin: 15px 0;">
+            {filas}
+        </table>
+        <p style="font-size: 15px; color: #555;">
+            Por favor contactar al cliente a la brevedad.
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 13px; color: #999;">
+            Notificación automática — Bot WhatsApp Inmobiliaria Bertero
+        </p>
+    </div>
+    """
+    return _enviar_email(VENDEDOR_EMAIL, asunto, cuerpo)

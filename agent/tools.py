@@ -729,6 +729,98 @@ async def registrar_lead_ghl(
     return resultado
 
 
+async def solicitar_asesor(
+    telefono: str,
+    nombre: str = "",
+    email: str = "",
+    operacion: str = "",
+    resumen: str = "",
+    propiedad_direccion: str = "",
+    propiedad_link: str = "",
+) -> str:
+    """
+    Notifica a un asesor por email y WhatsApp cuando el cliente quiere hablar.
+    También registra el lead en GHL para tracking. NO agenda visita ni devuelve booking link.
+    """
+    from agent.email_service import enviar_notificacion_asesor
+    from agent.providers import obtener_proveedor
+    from agent.utils import normalizar_telefono
+
+    nombre = nombre or "Cliente WhatsApp"
+    telefono_norm = normalizar_telefono(telefono) if telefono else ""
+
+    # 1. Registrar en GHL (tracking CRM)
+    try:
+        await registrar_lead_ghl(
+            telefono=telefono,
+            nombre=nombre,
+            email=email,
+            operacion=operacion or "consulta",
+            resumen=resumen or "Cliente solicitó hablar con un asesor",
+            propiedad_direccion=propiedad_direccion,
+            propiedad_link=propiedad_link,
+        )
+        logger.info(f"Lead registrado en GHL para solicitud de asesor: {telefono_norm}")
+    except Exception as e:
+        logger.error(f"Error registrando lead GHL en solicitar_asesor: {e}")
+
+    # 2. Enviar email al asesor/admin
+    email_enviado = False
+    try:
+        email_enviado = enviar_notificacion_asesor(
+            nombre_cliente=nombre,
+            telefono_cliente=telefono_norm,
+            email_cliente=email,
+            operacion=operacion,
+            resumen=resumen,
+            propiedad_direccion=propiedad_direccion,
+            propiedad_link=propiedad_link,
+        )
+    except Exception as e:
+        logger.error(f"Error enviando email de solicitud asesor: {e}")
+
+    # 3. Enviar WhatsApp al admin (bot se envía a sí mismo como notificación)
+    whatsapp_enviado = False
+    bot_phone = os.getenv("BOT_PHONE", "")
+    if bot_phone:
+        try:
+            prv = obtener_proveedor()
+            bot_wa = normalizar_telefono(bot_phone) + "@s.whatsapp.net"
+            msg_wa = (
+                f"📞 SOLICITUD DE ASESOR\n\n"
+                f"👤 {nombre}\n"
+                f"📱 {telefono_norm}\n"
+            )
+            if email:
+                msg_wa += f"📧 {email}\n"
+            if operacion:
+                msg_wa += f"🏷️ {operacion}\n"
+            if propiedad_direccion:
+                msg_wa += f"🏠 {propiedad_direccion}\n"
+            if propiedad_link:
+                msg_wa += f"🔗 https://www.inmobiliariabertero.com.ar{propiedad_link}\n"
+            if resumen:
+                msg_wa += f"\n📝 {resumen}\n"
+            msg_wa += f"\n⚡ Contactar al cliente a la brevedad."
+
+            await prv.enviar_mensaje(bot_wa, msg_wa)
+            whatsapp_enviado = True
+            logger.info(f"Notificación WhatsApp de asesor enviada para {telefono_norm}")
+        except Exception as e:
+            logger.error(f"Error enviando WhatsApp de solicitud asesor: {e}")
+    else:
+        logger.warning("BOT_PHONE no configurado — notificación WhatsApp de asesor omitida")
+
+    # 4. Resultado para Claude
+    resultado = "Solicitud de asesor procesada.\n"
+    resultado += f"Email al asesor: {'enviado' if email_enviado else 'no enviado (SMTP no configurado)'}\n"
+    resultado += f"WhatsApp al admin: {'enviado' if whatsapp_enviado else 'no enviado (BOT_PHONE no configurado)'}\n"
+    resultado += f"CRM: Lead registrado.\n"
+    resultado += "[INSTRUCCIÓN: Confirmar al cliente que un asesor fue notificado y lo va a contactar pronto. NO compartir booking link — el asesor se comunicará directamente.]"
+
+    return resultado
+
+
 async def obtener_link_agendar() -> str:
     """Retorna el link de booking para que el cliente agende una visita."""
     from agent.ghl import obtener_link_booking
@@ -1032,6 +1124,50 @@ TOOLS_DEFINITION = [
                 }
             },
             "required": ["telefono", "resumen"]
+        }
+    },
+    {
+        "name": "solicitar_asesor",
+        "description": (
+            "Notifica a un asesor por email y WhatsApp para que contacte al cliente. "
+            "Usar cuando el cliente quiere 'hablar con un asesor', 'que me llamen', "
+            "'hablar con alguien del equipo'. Registra en CRM + envía email + WhatsApp. "
+            "NO devuelve booking link — el asesor contactará al cliente directamente. "
+            "Pedir nombre antes de llamar. Email es opcional."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "telefono": {
+                    "type": "string",
+                    "description": "Teléfono del cliente (del contexto interno)"
+                },
+                "nombre": {
+                    "type": "string",
+                    "description": "Nombre del cliente"
+                },
+                "email": {
+                    "type": "string",
+                    "description": "Email del cliente (opcional)"
+                },
+                "operacion": {
+                    "type": "string",
+                    "description": "Tipo de operación: venta, alquiler, tasacion, etc."
+                },
+                "resumen": {
+                    "type": "string",
+                    "description": "Resumen de lo que busca: tipo, zona, presupuesto, propiedades vistas"
+                },
+                "propiedad_direccion": {
+                    "type": "string",
+                    "description": "Dirección de la propiedad de interés (si hay)"
+                },
+                "propiedad_link": {
+                    "type": "string",
+                    "description": "Link relativo de la propiedad (ej: /p/7007502-...)"
+                },
+            },
+            "required": ["telefono", "nombre"]
         }
     },
 ]
