@@ -127,26 +127,13 @@ async def buscar_propiedades(
     try:
         global _propiedades_cache, _propiedades_cache_time
 
-        # Leer desde cache en memoria (cargado desde Supabase)
+        # Leer desde cache en memoria (cargado desde Supabase al iniciar el servidor)
         if _propiedades_cache:
             todas = list(_propiedades_cache)
             logger.info(f"Propiedades desde cache Supabase: {len(todas)}")
         else:
-            # Fallback: scraping en vivo si Supabase no está configurado
-            logger.warning("Cache Supabase vacío — fallback a scraping en vivo")
-            todas = []
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                for page in range(1, 5):  # Hasta 4 páginas (80 propiedades)
-                    r = await client.get(f"{BASE_URL}/Propiedades", params={"p": str(page)})
-                    if r.status_code != 200:
-                        break
-                    nuevas = _parsear_listado(r.text)
-                    if not nuevas:
-                        break
-                    todas.extend(nuevas)
-            _propiedades_cache = list(todas)
-            _propiedades_cache_time = time.time()
-            logger.info(f"Fallback: {len(todas)} propiedades scrapeadas y cacheadas")
+            logger.error("Cache Supabase vacío — no hay propiedades disponibles")
+            return "No hay propiedades cargadas en este momento. Por favor intentá de nuevo en unos minutos."
 
         # Filtrar por tipo
         if tipo:
