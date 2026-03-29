@@ -260,19 +260,42 @@ async def webhook_handler(request: Request):
                     contexto += f", Email: {datos_crm['email']}"
                 contexto += ". NO volver a pedir estos datos — usarlos directamente.]"
 
-            if es_cliente_nuevo:
-                contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía, mencioná que sos asistente virtual de Bertero, y enviale la lista interactiva de opciones.]"
-            else:
-                contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. REGLAS ESTRICTAS: 1) NUNCA presentarte como Lucía ni decir 'Soy Lucía' ni 'asistente virtual de Bertero' — el cliente ya te conoce. 2) Saludalo directamente y enviale la lista interactiva de opciones (paso 1 del flujo) para que elija qué necesita. 3) Si ya dijo qué busca en este mensaje, avanzá directo al siguiente paso del flujo sin re-presentarte.]"
-            # Detectar estado del flujo basado en el último mensaje del bot
+            # Detectar estado del flujo basado en el último mensaje del bot ANTES de decidir contexto cliente
+            flujo_activo = None
             if historial:
                 ultimo_bot = next((m for m in reversed(historial) if m["role"] == "assistant"), None)
                 if ultimo_bot:
                     ultimo_texto = ultimo_bot["content"]
                     if "inmobiliariabertero.com.ar/p/" in ultimo_texto:
-                        contexto += "\n[ESTADO FLUJO: El bot ACABA de mostrar propiedades al cliente. Si el cliente responde con una afirmación (sí, dale, bueno, claro, ok) está diciendo que quiere ver detalles de alguna. Mostrar enviar_lista con las propiedades para que elija. NUNCA volver al menú principal.]"
+                        flujo_activo = "propiedades_mostradas"
                     elif "Agendar visita" in ultimo_texto or "btn_agendar" in ultimo_texto:
-                        contexto += "\n[ESTADO FLUJO: El bot ofreció agendar visita o hablar con asesor. Continuar ese flujo.]"
+                        flujo_activo = "agendar_visita"
+                    elif "¿qué tipo de propiedad" in ultimo_texto.lower() or "¿cuántos ambientes" in ultimo_texto.lower() or "¿en qué zona" in ultimo_texto.lower() or "presupuesto" in ultimo_texto.lower():
+                        flujo_activo = "calificacion"
+                    elif "nombre" in ultimo_texto.lower() and ("email" in ultimo_texto.lower() or "correo" in ultimo_texto.lower()):
+                        flujo_activo = "registro_lead"
+                    elif "detalle" in ultimo_texto.lower() or "fotos" in ultimo_texto.lower() or "características" in ultimo_texto.lower():
+                        flujo_activo = "detalle_propiedad"
+
+            if es_cliente_nuevo:
+                contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía, mencioná que sos asistente virtual de Bertero, y enviale la lista interactiva de opciones.]"
+            elif flujo_activo:
+                # Hay un flujo en curso — NO pedir menú principal
+                contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. NUNCA presentarte como Lucía ni re-presentarte. IMPORTANTE: Hay un flujo en curso — continuar donde quedó, NO enviar menú principal.]"
+            else:
+                contexto += "\n[CLIENTE RECURRENTE: ya ha conversado antes. REGLAS ESTRICTAS: 1) NUNCA presentarte como Lucía ni decir 'Soy Lucía' ni 'asistente virtual de Bertero' — el cliente ya te conoce. 2) Saludalo directamente y enviale la lista interactiva de opciones (paso 1 del flujo) para que elija qué necesita. 3) Si ya dijo qué busca en este mensaje, avanzá directo al siguiente paso del flujo sin re-presentarte.]"
+
+            # Inyectar estado del flujo específico para guiar a Claude
+            if flujo_activo == "propiedades_mostradas":
+                contexto += "\n[ESTADO FLUJO: El bot ACABA de mostrar propiedades al cliente. Si el cliente responde con una afirmación (sí, dale, bueno, claro, ok) está diciendo que quiere ver detalles de alguna. Mostrar enviar_lista con las propiedades para que elija. NUNCA volver al menú principal.]"
+            elif flujo_activo == "agendar_visita":
+                contexto += "\n[ESTADO FLUJO: El bot ofreció agendar visita o hablar con asesor. Continuar ese flujo.]"
+            elif flujo_activo == "calificacion":
+                contexto += "\n[ESTADO FLUJO: El bot está en medio del flujo de calificación (tipo/zona/ambientes/precio). Continuar con la siguiente pregunta del flujo. NUNCA volver al menú principal.]"
+            elif flujo_activo == "registro_lead":
+                contexto += "\n[ESTADO FLUJO: El bot está pidiendo datos de contacto al cliente. Continuar ese flujo.]"
+            elif flujo_activo == "detalle_propiedad":
+                contexto += "\n[ESTADO FLUJO: El bot acaba de mostrar detalle de una propiedad. Ofrecer las opciones post-detalle (agendar visita, ver otra, hablar con asesor). NUNCA volver al menú principal.]"
 
             if msg.lista_id:
                 contexto += f"\n[El cliente seleccionó de una lista interactiva. ID seleccionado: {msg.lista_id}]"
