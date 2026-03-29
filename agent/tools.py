@@ -194,17 +194,17 @@ async def buscar_propiedades(
             todas = filtradas
 
         # ── Auto-relajación de filtros cuando no hay resultados ──────────────
-        # Reglas: NUNCA cruzar tipo ni operación. Relajar en este orden:
+        # Reglas: NUNCA cruzar tipo ni operación. Prioridad: mantener ambientes > mantener precio.
         # 1. Quitar zona (mantener tipo + ambientes + operación + precio)
-        # 2. Quitar ambientes (mantener tipo + operación + precio)
-        # 3. Relajar precio ±50% (mantener tipo + operación)
-        # 4. Quitar precio (mantener tipo + operación)
-        # 5. SIN_RESULTADOS — ofrecer agendar llamada o recibir novedades
+        # 2. Relajar precio ±50% manteniendo ambientes (tipo + ambientes + operación)
+        # 3. Quitar precio manteniendo ambientes (tipo + ambientes + operación)
+        # 4. Quitar ambientes (tipo + operación + precio)
+        # 5. Quitar todo menos tipo + operación
+        # 6. SIN_RESULTADOS
         filtro_relajado = ""
         if not todas:
             todas_backup = list(_propiedades_cache) if _propiedades_cache else []
 
-            # Helper: aplicar filtros base (tipo + operación, siempre se mantienen)
             def _filtrar_base(props):
                 result = list(props)
                 if tipo:
@@ -234,6 +234,7 @@ async def buscar_propiedades(
 
             tipo_texto = tipo or "propiedades"
             zona_texto = zona or "esa zona"
+            amb_texto = f" de {ambientes} ambientes" if ambientes else ""
 
             # Intento 1: quitar zona, mantener tipo + ambientes + operación + precio
             if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
@@ -243,38 +244,42 @@ async def buscar_propiedades(
                     relajadas = _filtrar_precio(relajadas, precio_min_num, precio_max_num)
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré {tipo_texto} en {zona}, pero hay opciones en otras zonas:\n\n"
+                    filtro_relajado = f"No encontré {tipo_texto}{amb_texto} en {zona}, pero hay opciones en otras zonas:\n\n"
 
-            # Intento 2: quitar ambientes, mantener tipo + operación + precio
-            if not todas and ambientes:
+            # Intento 2: relajar precio ±50%, MANTENER ambientes
+            if not todas and ambientes and (precio_min_num or precio_max_num):
                 relajadas = _filtrar_base(todas_backup)
-                if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
-                    relajadas = [p for p in relajadas if zona.lower() in p["zona"].lower()]
-                if precio_min_num or precio_max_num:
-                    relajadas = _filtrar_precio(relajadas, precio_min_num, precio_max_num)
-                if relajadas:
-                    todas = relajadas
-                    filtro_relajado = f"No encontré {tipo_texto} de {ambientes} ambientes en ese rango, pero hay {tipo_texto} con otros ambientes:\n\n"
-
-            # Intento 3: relajar precio ±50%, mantener tipo + operación
-            if not todas and (precio_min_num or precio_max_num):
-                relajadas = _filtrar_base(todas_backup)
-                if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
-                    relajadas = [p for p in relajadas if zona.lower() in p["zona"].lower()]
-                # Expandir rango: -50% del min, +50% del max
+                relajadas = _filtrar_ambientes(relajadas, ambientes)
                 expanded_min = int(precio_min_num * 0.5) if precio_min_num else 0
                 expanded_max = int(precio_max_num * 1.5) if precio_max_num else 0
                 relajadas = _filtrar_precio(relajadas, expanded_min, expanded_max)
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré {tipo_texto} en el rango exacto, pero hay opciones en precios cercanos:\n\n"
+                    filtro_relajado = f"No encontré {tipo_texto}{amb_texto} en ese rango exacto, pero hay opciones en precios cercanos:\n\n"
 
-            # Intento 4: quitar precio, mantener tipo + operación
+            # Intento 3: quitar precio, MANTENER ambientes
+            if not todas and ambientes and (precio_min_num or precio_max_num):
+                relajadas = _filtrar_base(todas_backup)
+                relajadas = _filtrar_ambientes(relajadas, ambientes)
+                if relajadas:
+                    todas = relajadas
+                    filtro_relajado = f"No encontré {tipo_texto}{amb_texto} en tu presupuesto, pero hay {len(relajadas)} en otros rangos de precio:\n\n"
+
+            # Intento 4: quitar ambientes, mantener tipo + operación + precio
+            if not todas and ambientes:
+                relajadas = _filtrar_base(todas_backup)
+                if precio_min_num or precio_max_num:
+                    relajadas = _filtrar_precio(relajadas, precio_min_num, precio_max_num)
+                if relajadas:
+                    todas = relajadas
+                    filtro_relajado = f"No encontré {tipo_texto}{amb_texto} en ese rango, pero hay {tipo_texto} con otros ambientes:\n\n"
+
+            # Intento 5: quitar todo menos tipo + operación
             if not todas:
                 relajadas = _filtrar_base(todas_backup)
                 if relajadas:
                     todas = relajadas
-                    filtro_relajado = f"No encontré {tipo_texto} con esos filtros exactos, pero tenemos {len(relajadas)} {tipo_texto} en {operacion or 'nuestro catálogo'}:\n\n"
+                    filtro_relajado = f"No encontré con esos filtros exactos, pero tenemos {len(relajadas)} {tipo_texto} en {operacion or 'nuestro catálogo'}:\n\n"
 
             # Si no hay NADA del mismo tipo+operación → SIN_RESULTADOS
             if not todas:
