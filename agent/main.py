@@ -381,34 +381,9 @@ async def ghl_webhook_handler(request: Request):
             or ""
         )
 
-        # Link de Zoom/Meet — GHL lo genera al crear la cita
-        # Buscar en todos los campos posibles donde GHL puede poner el link
-        zoom_candidates = [
-            body.get("address", ""),
-            body.get("meetingUrl", ""),
-            body.get("meeting_location", ""),
-            calendar.get("meetingUrl", ""),
-            calendar.get("address", ""),
-            calendar.get("meeting_location", ""),
-        ]
-        # Si location es dict, buscar dentro; si es string, usarlo directo
-        location = body.get("location", "")
-        if isinstance(location, dict):
-            zoom_candidates.append(location.get("meetingUrl", ""))
-            zoom_candidates.append(location.get("address", ""))
-        elif isinstance(location, str):
-            zoom_candidates.append(location)
-
-        # Encontrar el primer candidato que sea un link de videoconferencia
-        zoom_link = ""
-        for candidate in zoom_candidates:
-            if candidate and any(domain in candidate.lower() for domain in ["zoom.us", "meet.google", "teams.microsoft"]):
-                zoom_link = candidate
-                break
-
         # Log completo del body para debug (ver qué campos manda GHL)
         logger.info(f"GHL webhook FULL BODY: {json.dumps(body, default=str)}")
-        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}, zoom_link: {zoom_link}")
+        logger.info(f"GHL webhook — contact_id: {contact_id}, email: {email}, phone: {phone}, status: {appointment_status}, fecha_cita: {fecha_cita}")
 
         # Buscar contacto si no tenemos el ID directo
         if not contact_id:
@@ -468,8 +443,6 @@ async def ghl_webhook_handler(request: Request):
                         mensaje = f"✅ *¡Tu llamada fue confirmada, {nombre}!*\n\n"
                     if fecha_formateada:
                         mensaje += f"📅 *{fecha_formateada}*\n\n"
-                    if zoom_link:
-                        mensaje += f"📹 *Link de la reunión:*\n{zoom_link}\n\n"
                     if propiedad_dir:
                         mensaje += (
                             f"Un asesor de Bertero va a estar esperándote. "
@@ -500,7 +473,7 @@ async def ghl_webhook_handler(request: Request):
                         "propiedad_resumen": propiedad_resumen,
                         "fecha_cita": fecha_cita,
                         "fecha_formateada": fecha_formateada,
-                        "zoom_link": zoom_link,
+                        "zoom_link": "",
                         "tipo_cita": "visita" if propiedad_dir else "consulta",
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")

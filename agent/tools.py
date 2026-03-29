@@ -912,12 +912,15 @@ def obtener_propiedades_para_visita(telefono: str) -> Respuesta:
 
 async def solicitar_humano(telefono: str, resumen: str) -> str:
     """
-    Pausa el bot y notifica al vendedor asignado por WhatsApp.
+    Pausa el bot y notifica al vendedor asignado por WhatsApp y email.
     Llamar cuando el cliente pide hablar con una persona.
+    Incluye propiedades visitadas y datos CRM en la notificacion.
     """
     from agent.takeover import obtener_estado, set_estado, construir_mensaje_vendedor
     from agent.utils import normalizar_telefono
     from agent.providers import obtener_proveedor
+    from agent.session import obtener_propiedades
+    from agent.business_hours import esta_en_horario
 
     # Idempotency guard: si ya esta en humano, no re-notificar (Pitfall 6)
     estado_actual = await obtener_estado(telefono)
@@ -927,11 +930,28 @@ async def solicitar_humano(telefono: str, resumen: str) -> str:
     # 1. Cambiar estado a "humano"
     await set_estado(telefono, "humano")
 
-    # 2. Enviar WhatsApp al vendedor
+    # 2. Recopilar datos enriquecidos
+    nombre = ""
+    email = ""
+    try:
+        from agent.ghl import buscar_datos_contacto_por_telefono
+        datos_crm = await buscar_datos_contacto_por_telefono(telefono)
+        if datos_crm:
+            nombre = datos_crm.get("nombre", "")
+            email = datos_crm.get("email", "")
+    except Exception as e:
+        logger.debug(f"No se pudo obtener datos CRM para takeover: {e}")
+
+    propiedades = obtener_propiedades(telefono)
+
+    # 3. Enviar WhatsApp al vendedor con datos enriquecidos
     vendedor_phone_raw = os.getenv("VENDEDOR_WHATSAPP", "")
     if vendedor_phone_raw:
         prv = obtener_proveedor()
-        msg = construir_mensaje_vendedor(telefono, resumen)
+        msg = construir_mensaje_vendedor(
+            telefono, resumen,
+            nombre=nombre, email=email, propiedades=propiedades,
+        )
         vendedor_wa = normalizar_telefono(vendedor_phone_raw) + "@s.whatsapp.net"
         try:
             await prv.enviar_mensaje(vendedor_wa, msg)
@@ -941,17 +961,45 @@ async def solicitar_humano(telefono: str, resumen: str) -> str:
     else:
         logger.warning("VENDEDOR_WHATSAPP no configurado — notificacion WhatsApp omitida")
 
-    # Cancelar follow-up pendiente (FU-01): handoff a humano, no necesita follow-up automatico
+    # 4. Enviar email al vendedor con resumen + propiedades
+    try:
+        from agent.email_service import enviar_notificacion_asesor
+        prop_dir = ""
+        prop_link = ""
+        if propiedades:
+            prop_dir = ", ".join(p.get("direccion") or p.get("titulo", "") for p in propiedades)
+            prop_link = propiedades[0].get("link", "")
+        enviar_notificacion_asesor(
+            nombre_cliente=nombre or telefono,
+            telefono_cliente=telefono,
+            email_cliente=email,
+            resumen=resumen,
+            propiedad_direccion=prop_dir,
+            propiedad_link=prop_link,
+        )
+    except Exception as e:
+        logger.error(f"Error enviando email de takeover a vendedor: {e}")
+
+    # 5. Cancelar follow-up pendiente (FU-01)
     try:
         from agent.followup import cancelar_followup
         await cancelar_followup(telefono)
     except Exception as e:
         logger.error(f"Error cancelando follow-up para {telefono}: {e}")
 
-    return (
-        "Estado cambiado a 'humano'. Vendedor notificado por WhatsApp. "
-        "Confirmar al cliente que lo va a atender un asesor en breve."
-    )
+    # 6. Respuesta diferenciada por horario
+    en_horario = esta_en_horario()
+    if en_horario:
+        return (
+            "Estado cambiado a 'humano'. Vendedor notificado por WhatsApp y email. "
+            "Informar al cliente que un asesor se va a poner en contacto en minutos."
+        )
+    else:
+        return (
+            "Estado cambiado a 'humano'. Vendedor notificado por WhatsApp y email. "
+            "Informar al cliente que estamos fuera de horario y que un asesor lo va a contactar "
+            "a primera hora del próximo día laboral (L-V 9:00)."
+        )
 
 
 async def reiniciar_conversacion(telefono: str) -> str:

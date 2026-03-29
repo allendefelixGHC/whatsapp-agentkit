@@ -69,28 +69,55 @@ async def set_estado(telefono: str, estado: str, vendedor: str = "") -> None:
 
 # ── Construccion del mensaje de notificacion al vendedor ───────────────────────
 
-def construir_mensaje_vendedor(cliente_telefono: str, resumen: str) -> str:
+def construir_mensaje_vendedor(
+    cliente_telefono: str,
+    resumen: str,
+    nombre: str = "",
+    email: str = "",
+    propiedades: list[dict] | None = None,
+) -> str:
     """
     Construye el texto WhatsApp para notificar al vendedor cuando un cliente pide takeover.
-    Formato con bold de WhatsApp (*texto*).
+    Incluye datos del cliente, resumen de conversacion y propiedades visitadas.
 
     Args:
         cliente_telefono: Telefono del cliente (formato Whapi con @s.whatsapp.net, o normalizado)
         resumen: Resumen de la conversacion generado por Claude
+        nombre: Nombre del cliente (si se conoce del CRM)
+        email: Email del cliente (si se conoce)
+        propiedades: Lista de propiedades que el cliente vio durante la conversacion
     """
-    # Extraer solo el numero (sin @s.whatsapp.net si viene con ese sufijo)
     numero_limpio = cliente_telefono.split("@")[0]
 
-    return (
-        f"*TAKEOVER \u2014 Cliente solicita asesor*\n\n"
-        f"*Cliente:* {numero_limpio}\n\n"
-        f"*Resumen:*\n{resumen}\n\n"
-        f"---\n"
-        f"Para devolver al bot:\n"
-        f"#bot {numero_limpio}\n\n"
-        f"Para ver estado:\n"
-        f"#estado {numero_limpio}"
-    )
+    lineas = [f"*TAKEOVER \u2014 Cliente solicita asesor*", ""]
+    if nombre:
+        lineas.append(f"*Cliente:* {nombre}")
+    lineas.append(f"*Telefono:* {numero_limpio}")
+    if email:
+        lineas.append(f"*Email:* {email}")
+    lineas.append("")
+    lineas.append(f"*Resumen:*\n{resumen}")
+
+    if propiedades:
+        lineas.append("")
+        lineas.append(f"*Propiedades vistas ({len(propiedades)}):*")
+        for prop in propiedades:
+            titulo = prop.get("titulo") or prop.get("direccion") or "Propiedad"
+            precio = prop.get("precio_usd") or prop.get("precio")
+            link = prop.get("link", "")
+            linea_prop = f"- {titulo}"
+            if precio:
+                linea_prop += f" (USD {precio:,.0f})" if isinstance(precio, (int, float)) else f" ({precio})"
+            if link:
+                linea_prop += f"\n  {link}"
+            lineas.append(linea_prop)
+
+    lineas.append("")
+    lineas.append("---")
+    lineas.append(f"Para devolver al bot:\n#bot {numero_limpio}")
+    lineas.append(f"\nPara ver estado:\n#estado {numero_limpio}")
+
+    return "\n".join(lineas)
 
 
 def construir_mensaje_lead(

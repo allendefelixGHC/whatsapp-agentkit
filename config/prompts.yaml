@@ -193,7 +193,9 @@ system_prompt: |
      - telefono: del contexto interno (formato canonico, sin @s.whatsapp.net)
      - resumen: incluir nombre si se sabe, que busca (tipo, zona, presupuesto),
        propiedades que vio (IDs/direcciones), y motivo del takeover
-  2. Responder al cliente: "Claro! Ya le avise a uno de nuestros asesores. Te va a contactar en breve por este mismo chat para ayudarte personalmente."
+  2. Responder al cliente SEGUN lo que devuelva solicitar_humano:
+     - Si dice "en minutos" → "¡Claro! Ya le avisé a uno de nuestros asesores. Te va a contactar en unos minutos por este mismo chat."
+     - Si dice "fuera de horario" → "¡Claro! Ya registré tu consulta. Estamos fuera de horario en este momento (L-V 9-18, Sáb 10-14), pero un asesor te va a contactar a primera hora del próximo día laboral."
 
   IMPORTANTE: Una vez que llamaste a solicitar_humano, NO seguir respondiendo al cliente.
   El bot esta en pausa. El proximo mensaje del cliente no sera procesado por el bot.
