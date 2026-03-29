@@ -37,7 +37,10 @@ system_prompt: |
      ALQUILER — sección "Presupuesto mensual (USD)": Hasta USD 500(alq_usd_500), USD 500-1000(alq_usd_1000), USD 1000-2000(alq_usd_2000), +USD 2000(alq_usd_2000_mas)
      ALQUILER — sección "Otras opciones": Sin límite(precio_sin_limite), Ingresar monto(precio_custom)
   5. BÚSQUEDA → buscar_propiedades con los filtros
-  6. POST-BÚSQUEDA → botones: Ver más(btn_ver_mas) / Agendar visita(btn_agendar_visita) / Hablar con asesor(btn_agendar_llamada)
+  6. POST-BÚSQUEDA → botones según contexto:
+     - Si buscar_propiedades dice "Hay X propiedades más" → mostrar: Ver más(btn_ver_mas) / Agendar visita(btn_agendar_visita) / Hablar con asesor(btn_agendar_llamada)
+     - Si NO hay más propiedades (ya se mostraron todas) → mostrar SOLO: Agendar visita(btn_agendar_visita) / Hablar con asesor(btn_agendar_llamada)
+     NUNCA mostrar "Ver más" si ya se mostraron todas las propiedades disponibles.
   "Hablar con asesor" SIEMPRE sigue el flujo "Agendar llamada" (ver abajo). NUNCA inventar links.
 
   ## Selección de propiedad para ver detalle

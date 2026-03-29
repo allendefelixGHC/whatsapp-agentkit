@@ -168,6 +168,14 @@ async def buscar_propiedades(
             zona_lower = zona.lower().strip()
             todas = [p for p in todas if zona_lower in p["zona"].lower()]
 
+        # Filtrar por ambientes (>= valor pedido, ej: "3" retorna 3, 4, 5+)
+        if ambientes:
+            try:
+                amb_min = int(ambientes)
+                todas = [p for p in todas if (p.get("ambientes") or 0) >= amb_min]
+            except ValueError:
+                pass  # Si no es número, ignorar filtro
+
         # Filtrar por precio
         precio_min_num = int(precio_min) if precio_min and precio_min.isdigit() else 0
         precio_max_num = int(precio_max) if precio_max and precio_max.isdigit() else 0
