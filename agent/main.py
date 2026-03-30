@@ -354,30 +354,45 @@ async def webhook_handler(request: Request):
                 from agent.session import obtener_filtros
                 # Buscar datos de la propiedad en cache
                 prop_data = next((p for p in _propiedades_cache if str(p.get("propiedad_id", "")) == str(prop_id)), {})
-                # Obtener filtros de búsqueda para resumen enriquecido
+                # Construir resumen con filtros de búsqueda (lo que busca) + propiedad elegida
                 filtros = obtener_filtros(telefono_normalizado)
-                resumen_parts = [f"Quiere visitar: {prop_data.get('tipo', '')} en {prop_data.get('zona', '')} - {prop_data.get('precio', '')}"]
-                if filtros:
-                    busca = []
-                    if filtros.get("operacion"):
-                        busca.append(f"Operación: {filtros['operacion']}")
-                    if filtros.get("tipo"):
-                        busca.append(f"Tipo: {filtros['tipo']}")
-                    if filtros.get("ambientes"):
-                        busca.append(f"Ambientes: {filtros['ambientes']}")
-                    if filtros.get("zona"):
-                        busca.append(f"Zona: {filtros['zona']}")
-                    if filtros.get("precio_min") or filtros.get("precio_max"):
-                        rango = "Presupuesto: "
-                        if filtros.get("precio_min"):
-                            rango += f"USD {int(filtros['precio_min']):,}"
-                        if filtros.get("precio_min") and filtros.get("precio_max"):
-                            rango += " - "
-                        if filtros.get("precio_max"):
-                            rango += f"USD {int(filtros['precio_max']):,}"
-                        busca.append(rango)
-                    if busca:
-                        resumen_parts.append("Búsqueda: " + " | ".join(busca))
+                resumen_parts = []
+                # 1. Lo que busca el cliente (según filtros de calificación)
+                busca_parts = []
+                op = filtros.get("operacion", "Comprar")
+                tipo_filtro = filtros.get("tipo", "")
+                if op:
+                    busca_parts.append(op.capitalize())
+                if tipo_filtro:
+                    busca_parts.append(tipo_filtro.lower())
+                if filtros.get("ambientes"):
+                    busca_parts.append(f"de {filtros['ambientes']} ambientes")
+                zona_filtro = filtros.get("zona", "")
+                if zona_filtro and zona_filtro.lower() not in ("todas", "todas las zonas", "cualquiera", ""):
+                    busca_parts.append(f"en {zona_filtro}")
+                else:
+                    busca_parts.append("en todas las zonas")
+                if filtros.get("precio_min") or filtros.get("precio_max"):
+                    p_min = filtros.get("precio_min", "")
+                    p_max = filtros.get("precio_max", "")
+                    if p_min and p_max:
+                        busca_parts.append(f"entre USD {int(p_min):,} y USD {int(p_max):,}")
+                    elif p_max:
+                        busca_parts.append(f"hasta USD {int(p_max):,}")
+                    elif p_min:
+                        busca_parts.append(f"desde USD {int(p_min):,}")
+                if busca_parts:
+                    resumen_parts.append("Busca: " + " ".join(busca_parts))
+                # 2. Propiedad elegida — aclarar si no coincide exactamente con los filtros
+                prop_zona = prop_data.get("zona", "")
+                prop_precio = prop_data.get("precio_num", 0)
+                p_min_num = int(filtros.get("precio_min", 0) or 0)
+                p_max_num = int(filtros.get("precio_max", 0) or 0)
+                fuera_rango = (p_min_num and prop_precio < p_min_num) or (p_max_num and prop_precio > p_max_num)
+                if fuera_rango:
+                    resumen_parts.append(f"Eligió propiedad cercana a su búsqueda: {prop_data.get('tipo', '')} en {prop_zona} - {prop_data.get('precio', '')} (fuera del rango original)")
+                else:
+                    resumen_parts.append(f"Eligió: {prop_data.get('tipo', '')} en {prop_zona} - {prop_data.get('precio', '')}")
                 resumen_completo = "\n".join(resumen_parts)
                 # Registrar lead con datos del CRM
                 nombre_lead = datos_crm.get("nombre", "") if datos_crm else ""
