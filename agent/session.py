@@ -19,12 +19,14 @@ _cache: dict[str, dict] = {}
 _TTL = timedelta(hours=2)
 
 
-def guardar_propiedades(telefono: str, propiedades: list[dict]):
-    """Guarda las últimas propiedades mostradas a un cliente."""
-    _cache[telefono] = {
-        "propiedades": propiedades,
-        "timestamp": datetime.utcnow(),
-    }
+def guardar_propiedades(telefono: str, propiedades: list[dict], filtros: dict | None = None):
+    """Guarda las últimas propiedades mostradas y los filtros usados."""
+    if telefono not in _cache:
+        _cache[telefono] = {"timestamp": datetime.utcnow()}
+    _cache[telefono]["propiedades"] = propiedades
+    _cache[telefono]["timestamp"] = datetime.utcnow()
+    if filtros:
+        _cache[telefono]["filtros"] = filtros
     logger.debug(f"Cache: {len(propiedades)} propiedades guardadas para {telefono}")
 
 
@@ -38,6 +40,16 @@ def obtener_propiedades(telefono: str) -> list[dict]:
         del _cache[telefono]
         return []
     return datos["propiedades"]
+
+
+def obtener_filtros(telefono: str) -> dict:
+    """Recupera los filtros de la última búsqueda del cliente."""
+    datos = _cache.get(telefono)
+    if not datos:
+        return {}
+    if datetime.utcnow() - datos["timestamp"] > _TTL:
+        return {}
+    return datos.get("filtros", {})
 
 
 def limpiar_cache_expirado():

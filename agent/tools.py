@@ -362,15 +362,22 @@ async def buscar_propiedades(
         else:
             resultado += f"[TODAS_MOSTRADAS: Son todas las propiedades disponibles con estos filtros. NO hay más. NO ofrecer 'ver más'. NO inventar propiedades adicionales.]\n"
 
-        # Guardar propiedades mostradas en cache de sesión para lista de visitas
+        # Guardar propiedades mostradas + filtros en cache de sesión
+        filtros_busqueda = {
+            "tipo": tipo or "",
+            "operacion": operacion or "",
+            "zona": zona or "",
+            "ambientes": ambientes or "",
+            "precio_min": precio_min or "",
+            "precio_max": precio_max or "",
+        }
         if telefono:
             # Acumular: si es página 2+, sumar a las anteriores
             props_previas = obtener_propiedades(telefono) if pagina > 1 else []
             props_nuevas = props_previas + pagina_actual
-            guardar_propiedades(telefono, props_nuevas)
+            guardar_propiedades(telefono, props_nuevas, filtros=filtros_busqueda)
         else:
-            # Sin teléfono, guardar con key genérica (fallback)
-            guardar_propiedades("_last", pagina_actual)
+            guardar_propiedades("_last", pagina_actual, filtros=filtros_busqueda)
 
         # Programar follow-up (FU-01): cliente vio propiedades, si no agenda en 24h se le escribe
         if telefono and pagina_actual:

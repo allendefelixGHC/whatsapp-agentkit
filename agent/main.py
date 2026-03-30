@@ -351,8 +351,34 @@ async def webhook_handler(request: Request):
                 # Extraer propiedad_id y ejecutar registrar_lead_ghl
                 prop_id = msg.lista_id.replace("visita_prop_", "")
                 from agent.tools import registrar_lead_ghl, _propiedades_cache
+                from agent.session import obtener_filtros
                 # Buscar datos de la propiedad en cache
                 prop_data = next((p for p in _propiedades_cache if str(p.get("propiedad_id", "")) == str(prop_id)), {})
+                # Obtener filtros de búsqueda para resumen enriquecido
+                filtros = obtener_filtros(telefono_normalizado)
+                resumen_parts = [f"Quiere visitar: {prop_data.get('tipo', '')} en {prop_data.get('zona', '')} - {prop_data.get('precio', '')}"]
+                if filtros:
+                    busca = []
+                    if filtros.get("operacion"):
+                        busca.append(f"Operación: {filtros['operacion']}")
+                    if filtros.get("tipo"):
+                        busca.append(f"Tipo: {filtros['tipo']}")
+                    if filtros.get("ambientes"):
+                        busca.append(f"Ambientes: {filtros['ambientes']}")
+                    if filtros.get("zona"):
+                        busca.append(f"Zona: {filtros['zona']}")
+                    if filtros.get("precio_min") or filtros.get("precio_max"):
+                        rango = "Presupuesto: "
+                        if filtros.get("precio_min"):
+                            rango += f"USD {int(filtros['precio_min']):,}"
+                        if filtros.get("precio_min") and filtros.get("precio_max"):
+                            rango += " - "
+                        if filtros.get("precio_max"):
+                            rango += f"USD {int(filtros['precio_max']):,}"
+                        busca.append(rango)
+                    if busca:
+                        resumen_parts.append("Búsqueda: " + " | ".join(busca))
+                resumen_completo = "\n".join(resumen_parts)
                 # Registrar lead con datos del CRM
                 nombre_lead = datos_crm.get("nombre", "") if datos_crm else ""
                 email_lead = datos_crm.get("email", "") if datos_crm else ""
@@ -360,11 +386,13 @@ async def webhook_handler(request: Request):
                     telefono=telefono_normalizado,
                     nombre=nombre_lead,
                     email=email_lead,
-                    operacion="Comprar",
+                    operacion=filtros.get("operacion", "Comprar"),
+                    tipo_propiedad=filtros.get("tipo", ""),
+                    zona=filtros.get("zona", ""),
                     propiedad_id=prop_id,
                     propiedad_link=f"{BASE_URL}{prop_data.get('link', '')}" if prop_data.get('link') else "",
                     propiedad_direccion=prop_data.get("direccion", ""),
-                    resumen=f"Quiere visitar: {prop_data.get('tipo', '')} en {prop_data.get('zona', '')} - {prop_data.get('precio', '')}",
+                    resumen=resumen_completo,
                 )
                 # Extraer booking link del resultado
                 booking_link = ""
