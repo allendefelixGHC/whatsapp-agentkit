@@ -115,7 +115,7 @@ async def obtener_historial(telefono: str, limite: int = 16) -> list[dict]:
         mensajes.reverse()
 
         return [
-            {"role": msg.role, "content": msg.content}
+            {"role": msg.role, "content": msg.content, "timestamp": msg.timestamp}
             for msg in mensajes
         ]
 

@@ -261,21 +261,33 @@ async def webhook_handler(request: Request):
                 contexto += ". NO volver a pedir estos datos — usarlos directamente.]"
 
             # Detectar estado del flujo basado en el último mensaje del bot ANTES de decidir contexto cliente
+            # Solo considerar flujo activo si el último mensaje fue reciente (< 30 min)
             flujo_activo = None
             if historial:
                 ultimo_bot = next((m for m in reversed(historial) if m["role"] == "assistant"), None)
                 if ultimo_bot:
-                    ultimo_texto = ultimo_bot["content"]
-                    if "inmobiliariabertero.com.ar/p/" in ultimo_texto:
-                        flujo_activo = "propiedades_mostradas"
-                    elif "Agendar visita" in ultimo_texto or "btn_agendar" in ultimo_texto:
-                        flujo_activo = "agendar_visita"
-                    elif "¿qué tipo de propiedad" in ultimo_texto.lower() or "¿cuántos ambientes" in ultimo_texto.lower() or "¿en qué zona" in ultimo_texto.lower() or "presupuesto" in ultimo_texto.lower():
-                        flujo_activo = "calificacion"
-                    elif "nombre" in ultimo_texto.lower() and ("email" in ultimo_texto.lower() or "correo" in ultimo_texto.lower()):
-                        flujo_activo = "registro_lead"
-                    elif "detalle" in ultimo_texto.lower() or "fotos" in ultimo_texto.lower() or "características" in ultimo_texto.lower():
-                        flujo_activo = "detalle_propiedad"
+                    # Verificar que el último mensaje no sea muy viejo
+                    flujo_reciente = True
+                    ts = ultimo_bot.get("timestamp")
+                    if ts:
+                        from datetime import datetime, timedelta
+                        edad = datetime.utcnow() - ts
+                        if edad > timedelta(minutes=30):
+                            flujo_reciente = False
+                            logger.debug(f"Último mensaje del bot tiene {edad} — flujo expirado, mostrar menú")
+
+                    if flujo_reciente:
+                        ultimo_texto = ultimo_bot["content"]
+                        if "inmobiliariabertero.com.ar/p/" in ultimo_texto:
+                            flujo_activo = "propiedades_mostradas"
+                        elif "Agendar visita" in ultimo_texto or "btn_agendar" in ultimo_texto:
+                            flujo_activo = "agendar_visita"
+                        elif "¿qué tipo de propiedad" in ultimo_texto.lower() or "¿cuántos ambientes" in ultimo_texto.lower() or "¿en qué zona" in ultimo_texto.lower() or "presupuesto" in ultimo_texto.lower():
+                            flujo_activo = "calificacion"
+                        elif "nombre" in ultimo_texto.lower() and ("email" in ultimo_texto.lower() or "correo" in ultimo_texto.lower()):
+                            flujo_activo = "registro_lead"
+                        elif "detalle" in ultimo_texto.lower() or "fotos" in ultimo_texto.lower() or "características" in ultimo_texto.lower():
+                            flujo_activo = "detalle_propiedad"
 
             if es_cliente_nuevo:
                 contexto += "\n[CLIENTE NUEVO: es su primer mensaje. Presentate como Lucía, mencioná que sos asistente virtual de Bertero, y enviale la lista interactiva de opciones.]"
