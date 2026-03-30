@@ -429,30 +429,24 @@ async def ghl_webhook_handler(request: Request):
 
         # Enviar notificaciones si la oportunidad se movió
         nombre = first_name or "cliente"
+        # Este calendario es exclusivamente para visitas a propiedades
+        tipo_cita = "visita"
         if movida:
             # 1. WhatsApp de confirmación al cliente
             if phone:
                 try:
-                    # normalizar_telefono() convierte cualquier formato al canónico (ej: 5493517575244)
-                    # Luego agregar @s.whatsapp.net para envío por Whapi
                     tel_whapi = normalizar_telefono(phone) + "@s.whatsapp.net"
-                    # Personalizar mensaje según si hay propiedad o es consulta general
-                    if propiedad_dir:
-                        mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
-                    else:
-                        mensaje = f"✅ *¡Tu llamada fue confirmada, {nombre}!*\n\n"
+                    mensaje = f"✅ *¡Tu visita fue confirmada, {nombre}!*\n\n"
                     if fecha_formateada:
                         mensaje += f"📅 *{fecha_formateada}*\n\n"
                     if propiedad_dir:
-                        mensaje += (
-                            f"Un asesor de Bertero va a estar esperándote. "
-                            f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
-                        )
-                    else:
-                        mensaje += (
-                            f"Un asesor de Bertero va a conversar con vos sobre tu búsqueda. "
-                            f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
-                        )
+                        mensaje += f"📍 *{propiedad_dir}*\n"
+                    if propiedad_link:
+                        mensaje += f"🔗 {propiedad_link}\n\n"
+                    mensaje += (
+                        f"Un asesor de Bertero va a estar esperándote. "
+                        f"Si necesitás reprogramar o tenés alguna consulta, escribinos por acá. 😊"
+                    )
                     await proveedor.enviar_mensaje(tel_whapi, mensaje)
                     logger.info(f"WhatsApp de confirmación enviado a {phone}")
                 except Exception as e:
@@ -474,7 +468,7 @@ async def ghl_webhook_handler(request: Request):
                         "fecha_cita": fecha_cita,
                         "fecha_formateada": fecha_formateada,
                         "zoom_link": "",
-                        "tipo_cita": "visita" if propiedad_dir else "consulta",
+                        "tipo_cita": tipo_cita,
                     })
                     logger.info(f"n8n emails enviados: {r.status_code}")
             except Exception as e:

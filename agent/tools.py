@@ -629,7 +629,15 @@ async def registrar_lead_ghl(
     """
     from agent.ghl import crear_o_actualizar_contacto, crear_oportunidad, obtener_link_booking
 
-    # 1. Crear/actualizar contacto
+    # Buscar productor de la propiedad en cache (si hay propiedad_id)
+    productor = ""
+    if propiedad_id:
+        for p in _propiedades_cache:
+            if str(p.get("propiedad_id", "")) == str(propiedad_id):
+                productor = p.get("productor", "")
+                break
+
+    # 1. Crear/actualizar contacto (productor tiene prioridad sobre zona para asignar vendedor)
     contacto = await crear_o_actualizar_contacto(
         telefono=telefono,
         nombre=nombre,
@@ -637,6 +645,7 @@ async def registrar_lead_ghl(
         operacion=operacion,
         tipo_propiedad=tipo_propiedad,
         zona=zona,
+        productor=productor,
     )
 
     booking_link = obtener_link_booking(nombre=nombre, email=email, telefono=telefono)

@@ -80,14 +80,24 @@ def _headers() -> dict:
     }
 
 
-def asignar_vendedor(zona: str) -> str:
-    """Asigna un vendedor según la zona del cliente."""
+def asignar_vendedor(zona: str, productor: str = "") -> str:
+    """
+    Asigna un vendedor. Prioridad:
+    1. productor de la propiedad (si existe en Supabase)
+    2. zona del cliente (mapeo hardcoded)
+    3. round-robin como fallback
+    """
     global _round_robin_counter
+    # Prioridad 1: productor de la propiedad seleccionada
+    if productor and productor.strip():
+        logger.info(f"Vendedor asignado por productor de propiedad: {productor.strip()}")
+        return productor.strip()
+    # Prioridad 2: zona del cliente
     zona_lower = zona.lower().strip()
     for key, vendedor in VENDEDORES_POR_ZONA.items():
         if key in zona_lower:
             return vendedor
-    # Round-robin si no hay zona específica
+    # Prioridad 3: round-robin
     vendedores = ["Abhay Bertero", "Martin Lopez"]
     vendedor = vendedores[_round_robin_counter % len(vendedores)]
     _round_robin_counter += 1
@@ -101,6 +111,7 @@ async def crear_o_actualizar_contacto(
     operacion: str = "",
     tipo_propiedad: str = "",
     zona: str = "",
+    productor: str = "",
 ) -> dict:
     """
     Crea o actualiza un contacto en GHL (upsert por teléfono).
@@ -123,8 +134,8 @@ async def crear_o_actualizar_contacto(
         logger.info(f"Teléfono normalizado para GHL: {digits_only} → +{tel_ghl}")
     tel_limpio = f"+{tel_ghl}"
 
-    # Asignar vendedor
-    vendedor = asignar_vendedor(zona) if zona else VENDEDOR_DEFAULT
+    # Asignar vendedor (prioridad: productor de propiedad > zona > round-robin)
+    vendedor = asignar_vendedor(zona, productor=productor) if (zona or productor) else VENDEDOR_DEFAULT
 
     # Separar nombre en first/last
     partes_nombre = nombre.strip().split(" ", 1) if nombre else ["", ""]
