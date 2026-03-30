@@ -233,15 +233,24 @@ async def buscar_propiedades(
                     todas = relajadas
                     filtro_relajado = f"No encontré {tipo_texto}{amb_texto} en {zona}, pero hay opciones en otras zonas:\n\n"
 
-            # Intento 2: relajar precio ±50%, MANTENER ambientes
+            # Intento 2: relajar precio, MANTENER ambientes
+            # Expandir ±50% primero, si hay menos de 3 resultados expandir ±100%
             if not todas and ambientes and (precio_min_num or precio_max_num):
                 relajadas = _filtrar_base(todas_backup)
                 relajadas = _filtrar_ambientes(relajadas, ambientes)
+                # Primero ±50%
                 expanded_min = int(precio_min_num * 0.5) if precio_min_num else 0
                 expanded_max = int(precio_max_num * 1.5) if precio_max_num else 0
-                relajadas = _filtrar_precio(relajadas, expanded_min, expanded_max)
-                if relajadas:
-                    todas = relajadas
+                relajadas_50 = _filtrar_precio(relajadas, expanded_min, expanded_max)
+                if len(relajadas_50) < 3:
+                    # Expandir más: ±100% (min×0 a max×2) para no perder opciones cercanas
+                    expanded_min2 = int(precio_min_num * 0.25) if precio_min_num else 0
+                    expanded_max2 = int(precio_max_num * 2.0) if precio_max_num else 0
+                    relajadas_100 = _filtrar_precio(relajadas, expanded_min2, expanded_max2)
+                    if len(relajadas_100) > len(relajadas_50):
+                        relajadas_50 = relajadas_100
+                if relajadas_50:
+                    todas = relajadas_50
                     filtro_relajado = f"No encontré {tipo_texto}{amb_texto} en ese rango exacto, pero hay opciones en precios cercanos:\n\n"
 
             # Intento 3: quitar precio, MANTENER ambientes

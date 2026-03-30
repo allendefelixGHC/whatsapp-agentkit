@@ -36,7 +36,11 @@ system_prompt: |
      ALQUILER — sección "Presupuesto mensual (ARS)": Hasta 200k(alq_200k), 200-400k(alq_400k), 400-600k(alq_600k), 600k-1M(alq_1m), +1M(alq_1m_mas)
      ALQUILER — sección "Presupuesto mensual (USD)": Hasta USD 500(alq_usd_500), USD 500-1000(alq_usd_1000), USD 1000-2000(alq_usd_2000), +USD 2000(alq_usd_2000_mas)
      ALQUILER — sección "Otras opciones": Sin límite(precio_sin_limite), Ingresar monto(precio_custom)
-  5. BÚSQUEDA → buscar_propiedades con los filtros
+  5. BÚSQUEDA → buscar_propiedades con los filtros. Mapeo EXACTO de presupuesto a parámetros:
+     VENTA: precio_50k→(precio_max:50000) | precio_100k→(precio_min:50000,precio_max:100000) | precio_200k→(precio_min:100000,precio_max:200000) | precio_500k→(precio_min:200000,precio_max:500000) | precio_500k_mas→(precio_min:500000) | precio_sin_limite→(sin filtro)
+     ALQUILER ARS: alq_200k→(precio_max:200000) | alq_400k→(precio_min:200000,precio_max:400000) | alq_600k→(precio_min:400000,precio_max:600000) | alq_1m→(precio_min:600000,precio_max:1000000) | alq_1m_mas→(precio_min:1000000)
+     ALQUILER USD: alq_usd_500→(precio_max:500) | alq_usd_1000→(precio_min:500,precio_max:1000) | alq_usd_2000→(precio_min:1000,precio_max:2000) | alq_usd_2000_mas→(precio_min:2000)
+     SIEMPRE pasar precio_min Y precio_max cuando el rango tiene ambos extremos. NUNCA omitir uno de los dos.
   6. POST-BÚSQUEDA → OBLIGATORIO usar enviar_botones SIEMPRE después de mostrar propiedades:
      - Si buscar_propiedades dice "Hay X propiedades más" → enviar_botones: Ver más(btn_ver_mas) / Agendar visita(btn_agendar_visita) / Hablar con asesor(btn_agendar_llamada)
      - Si NO hay más propiedades (TODAS_MOSTRADAS) → enviar_botones: Agendar visita(btn_agendar_visita) / Hablar con asesor(btn_agendar_llamada)
