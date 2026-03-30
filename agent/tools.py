@@ -271,15 +271,54 @@ async def buscar_propiedades(
             # Si no hay NADA del mismo tipo+operación → SIN_RESULTADOS
             if not todas:
                 op_texto = operacion or "esa operación"
-                return (
-                    f"SIN_RESULTADOS_OPERACION: No tenemos {tipo_texto} en {op_texto} disponibles en este momento"
-                    f"{f' en {zona_texto}' if zona else ''}.\n"
-                    f"[INSTRUCCIÓN INTERNA: Ofrecer al cliente DOS opciones con enviar_botones: "
-                    f"1) 'Agendar llamada'(id:btn_agendar_llamada) para hablar con un asesor que pueda ayudarlo, "
-                    f"2) 'Recibir novedades'(id:btn_recibir_novedades) para que le avisemos cuando tengamos "
-                    f"{tipo_texto} en {op_texto}{f' en {zona_texto}' if zona else ''}. "
-                    f"NUNCA mostrar propiedades de otra operación ni de otro tipo.]"
-                )
+                # Detectar si hay alternativas en otra operación o con otros filtros
+                op_lower = (operacion or "").lower().strip()
+                op_map = {"compra": "venta", "comprar": "venta", "alquilar": "alquiler", "renta": "alquiler"}
+                op_normalizada = op_map.get(op_lower, op_lower)
+                op_opuesta = "alquiler" if op_normalizada == "venta" else "venta"
+                # Buscar en operación opuesta
+                hay_en_otra_op = [p for p in todas_backup if op_opuesta in p["operacion"].lower()]
+                if tipo:
+                    tipo_lower_check = tipo.lower().strip()
+                    tipo_map_check = {"depto": "departamento", "dpto": "departamento", "lote": "terreno", "galpón": "galpon"}
+                    tipo_buscar_check = tipo_map_check.get(tipo_lower_check, tipo_lower_check)
+                    hay_en_otra_op = [p for p in hay_en_otra_op if tipo_buscar_check in p["tipo"].lower()]
+                # Buscar otros tipos en la misma operación
+                hay_otro_tipo = [p for p in todas_backup if op_normalizada in p["operacion"].lower()]
+                if tipo:
+                    hay_otro_tipo = [p for p in hay_otro_tipo if tipo_buscar_check not in p["tipo"].lower()]
+
+                # Construir sugerencia de alternativas
+                alternativas = []
+                if hay_en_otra_op:
+                    alternativas.append(f"{len(hay_en_otra_op)} {tipo_texto} en {op_opuesta}")
+                if hay_otro_tipo:
+                    tipos_disponibles = set(p["tipo"].lower() for p in hay_otro_tipo[:20])
+                    alternativas.append(f"otros tipos en {op_normalizada}: {', '.join(tipos_disponibles)}")
+
+                if alternativas:
+                    alt_texto = " | ".join(alternativas)
+                    return (
+                        f"SIN_RESULTADOS_OPERACION: No tenemos {tipo_texto} en {op_texto} disponibles en este momento"
+                        f"{f' en {zona_texto}' if zona else ''}.\n"
+                        f"ALTERNATIVAS_DISPONIBLES: {alt_texto}\n"
+                        f"[INSTRUCCIÓN INTERNA: Ofrecer al cliente TRES opciones con enviar_botones: "
+                        f"1) 'Ver otras opciones'(id:btn_ver_otras_opciones) para explorar propiedades "
+                        f"en {'otra operación (' + op_opuesta + ')' if hay_en_otra_op else ''}"
+                        f"{'u otro tipo de propiedad' if hay_otro_tipo else ''}, "
+                        f"2) 'Hablar con asesor'(id:btn_agendar_llamada) para hablar con un asesor, "
+                        f"3) 'Recibir novedades'(id:btn_recibir_novedades) para que le avisemos cuando tengamos "
+                        f"{tipo_texto} en {op_texto}{f' en {zona_texto}' if zona else ''}.]"
+                    )
+                else:
+                    return (
+                        f"SIN_RESULTADOS_OPERACION: No tenemos {tipo_texto} en {op_texto} disponibles en este momento"
+                        f"{f' en {zona_texto}' if zona else ''}.\n"
+                        f"[INSTRUCCIÓN INTERNA: Ofrecer al cliente DOS opciones con enviar_botones: "
+                        f"1) 'Hablar con asesor'(id:btn_agendar_llamada) para hablar con un asesor que pueda ayudarlo, "
+                        f"2) 'Recibir novedades'(id:btn_recibir_novedades) para que le avisemos cuando tengamos "
+                        f"{tipo_texto} en {op_texto}{f' en {zona_texto}' if zona else ''}.]"
+                    )
 
         total_encontradas = len(todas)
 
@@ -627,7 +666,21 @@ async def registrar_lead_ghl(
     Registra un lead en GHL: crea contacto + oportunidad en el pipeline.
     Retorna confirmación con datos del lead, vendedor asignado y link de booking pre-llenado.
     """
-    from agent.ghl import crear_o_actualizar_contacto, crear_oportunidad, obtener_link_booking
+    from agent.ghl import crear_o_actualizar_contacto, crear_oportunidad, obtener_link_booking, buscar_datos_contacto_por_telefono
+
+    # Si faltan nombre o email, intentar recuperarlos del CRM
+    if not nombre or not email:
+        try:
+            datos_crm = await buscar_datos_contacto_por_telefono(telefono)
+            if datos_crm:
+                if not nombre and datos_crm.get("nombre"):
+                    nombre = datos_crm["nombre"]
+                    logger.info(f"Nombre recuperado del CRM para {telefono}: {nombre}")
+                if not email and datos_crm.get("email"):
+                    email = datos_crm["email"]
+                    logger.info(f"Email recuperado del CRM para {telefono}: {email}")
+        except Exception as e:
+            logger.debug(f"No se pudo recuperar datos CRM para booking link: {e}")
 
     # Buscar productor de la propiedad en cache (si hay propiedad_id)
     productor = ""
