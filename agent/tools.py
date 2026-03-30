@@ -150,10 +150,10 @@ async def buscar_propiedades(
             op_buscar = op_map.get(op_lower, op_lower)
             todas = [p for p in todas if op_buscar in p["operacion"].lower()]
 
-        # Filtrar por zona
+        # Filtrar por zona (busca en zona Y dirección para cubrir casos como "La Calera")
         if zona and zona.lower() not in ("todas", "todas las zonas", "cualquiera"):
             zona_lower = zona.lower().strip()
-            todas = [p for p in todas if zona_lower in p["zona"].lower()]
+            todas = [p for p in todas if zona_lower in p["zona"].lower() or zona_lower in p.get("direccion", "").lower()]
 
         # Filtrar por ambientes (valor exacto — estándar ZonaProp/Argenprop/ML Argentina)
         # "3 ambientes" = solo 3, no 4 ni 5. Consistente con cómo buscan los argentinos.
