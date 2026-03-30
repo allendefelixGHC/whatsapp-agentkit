@@ -255,13 +255,71 @@ async def crear_oportunidad(
                 # Oportunidad duplicada no es un error real — el contacto ya existe en el pipeline
                 error_body = r.text
                 if "duplicate" in error_body.lower():
-                    logger.info(f"Oportunidad GHL ya existe para contacto — no es error, es duplicado")
-                    return {"duplicada": True, "nombre": nombre_opp}
+                    logger.info(f"Oportunidad GHL ya existe para contacto — actualizando custom fields")
+                    # Buscar la oportunidad existente y actualizar sus custom fields de propiedad
+                    opp_existente_id = await buscar_oportunidad_por_contacto(contact_id)
+                    if opp_existente_id:
+                        await _actualizar_custom_fields_oportunidad(
+                            opp_existente_id,
+                            propiedad_id=propiedad_id,
+                            propiedad_link=propiedad_link,
+                            propiedad_direccion=propiedad_direccion,
+                            resumen=resumen,
+                            nombre_opp=nombre_opp,
+                        )
+                    return {"duplicada": True, "id": opp_existente_id or "", "nombre": nombre_opp}
                 logger.error(f"Error GHL oportunidad: {r.status_code} — {error_body}")
                 return {"error": f"Error {r.status_code}"}
     except Exception as e:
         logger.error(f"Error creando oportunidad GHL: {e}")
         return {"error": str(e)}
+
+
+async def _actualizar_custom_fields_oportunidad(
+    oportunidad_id: str,
+    propiedad_id: str = "",
+    propiedad_link: str = "",
+    propiedad_direccion: str = "",
+    resumen: str = "",
+    nombre_opp: str = "",
+) -> bool:
+    """Actualiza los custom fields de una oportunidad existente (para duplicados)."""
+    if not GHL_API_KEY or not oportunidad_id:
+        return False
+
+    payload: dict = {}
+    custom_fields = []
+    if propiedad_id:
+        custom_fields.append({"id": CF_OPP_PROPIEDAD_ID, "value": propiedad_id})
+    if propiedad_link:
+        custom_fields.append({"id": CF_OPP_PROPIEDAD_LINK, "value": propiedad_link})
+    if propiedad_direccion:
+        custom_fields.append({"id": CF_OPP_PROPIEDAD_DIR, "value": propiedad_direccion})
+    if resumen:
+        custom_fields.append({"id": CF_OPP_RESUMEN, "value": resumen})
+    if custom_fields:
+        payload["customFields"] = custom_fields
+    if nombre_opp:
+        payload["name"] = nombre_opp
+
+    if not payload:
+        return False
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.put(
+                f"{GHL_API_BASE}/opportunities/{oportunidad_id}",
+                json=payload,
+                headers=_headers(),
+            )
+            if r.status_code == 200:
+                logger.info(f"Custom fields de oportunidad {oportunidad_id} actualizados")
+                return True
+            logger.error(f"Error actualizando oportunidad {oportunidad_id}: {r.status_code} — {r.text}")
+            return False
+    except Exception as e:
+        logger.error(f"Error actualizando custom fields oportunidad: {e}")
+        return False
 
 
 async def mover_oportunidad(oportunidad_id: str, stage: str) -> bool:
