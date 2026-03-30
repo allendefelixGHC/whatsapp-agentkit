@@ -20,13 +20,14 @@ from dotenv import load_dotenv
 from agent.brain import generar_respuesta
 from agent.memory import inicializar_db, guardar_mensaje, obtener_historial
 from agent.providers import obtener_proveedor
+from agent.providers.base import Respuesta, Boton, FilaLista, SeccionLista
 from agent.takeover import obtener_estado, procesar_comando_vendedor, check_and_apply_timeouts, timeout_loop
 from agent.dedup import es_duplicado
 from agent.utils import normalizar_telefono
 from agent.auth import verificar_firma_ghl
 from agent.limiter import verificar_rate_limit, RATE_LIMIT_MESSAGE
 from agent.business_hours import esta_en_horario
-from agent.tools import cargar_cache_desde_supabase
+from agent.tools import cargar_cache_desde_supabase, BASE_URL
 from agent.scraper import scrape_and_persist
 from agent.ghl import (
     buscar_contacto_por_email,
@@ -309,19 +310,108 @@ async def webhook_handler(request: Request):
             elif flujo_activo == "detalle_propiedad":
                 contexto += "\n[ESTADO FLUJO: El bot acaba de mostrar detalle de una propiedad. Ofrecer las opciones post-detalle (agendar visita, ver otra, hablar con asesor). NUNCA volver al menú principal.]"
 
-            if msg.lista_id:
-                contexto += f"\n[El cliente seleccionó de una lista interactiva. ID seleccionado: {msg.lista_id}]"
-            elif msg.boton_id:
-                contexto += f"\n[El cliente hizo clic en un botón. ID del botón: {msg.boton_id}]"
-            contexto += f"\n{msg.texto}"
-            respuesta = await generar_respuesta(
-                contexto,
-                historial,
-                imagen_url=msg.imagen_url,
-                imagen_mime=msg.imagen_mime,
-                audio_url=msg.audio_url,
-                audio_mime=msg.audio_mime,
-            )
+            # ── Router determinístico: interceptar botones/listas con acción predecible ──
+            # Estos se ejecutan SIN pasar por Claude — 100% determinístico, nunca falla
+            respuesta_deterministica = None
+            if msg.boton_id == "btn_agendar_visita":
+                from agent.tools import obtener_propiedades_para_visita
+                respuesta_deterministica = obtener_propiedades_para_visita(telefono_normalizado)
+                logger.info(f"Router determinístico: btn_agendar_visita → obtener_propiedades_para_visita")
+
+            elif msg.boton_id == "btn_nueva_busqueda":
+                # Enviar lista paso 1 (¿Qué necesitás?) directamente
+                respuesta_deterministica = Respuesta(
+                    tipo="lista",
+                    texto="¡Dale! ¿Qué te gustaría hacer?",
+                    texto_boton_lista="Ver opciones",
+                    secciones=[SeccionLista(
+                        titulo="¿Qué necesitás?",
+                        filas=[
+                            FilaLista(id="op_comprar", titulo="Comprar una propiedad", descripcion="Encontrá tu casa, depto o terreno ideal"),
+                            FilaLista(id="op_alquilar", titulo="Alquilar", descripcion="Buscá tu próximo hogar"),
+                            FilaLista(id="op_vender", titulo="Vender mi propiedad", descripcion="Te ayudamos a vender"),
+                            FilaLista(id="op_poner_alquiler", titulo="Poner en alquiler", descripcion="Publicá tu propiedad"),
+                            FilaLista(id="op_tasacion", titulo="Tasación", descripcion="Conocé el valor de tu propiedad"),
+                            FilaLista(id="op_info", titulo="Info general", descripcion="Consultas y más información"),
+                        ],
+                    )],
+                )
+                logger.info(f"Router determinístico: btn_nueva_busqueda → lista paso 1")
+
+            elif msg.boton_id == "btn_recibir_novedades":
+                # Pedir email directamente — texto simple, no necesita Claude
+                respuesta_deterministica = Respuesta(
+                    tipo="texto",
+                    texto="¡Perfecto! Para avisarte cuando tengamos propiedades que te interesen, necesito tu email. ¿Cuál es?",
+                )
+                logger.info(f"Router determinístico: btn_recibir_novedades → pedir email")
+
+            elif msg.lista_id and msg.lista_id.startswith("visita_prop_"):
+                # Cliente eligió una propiedad para visitar de la lista interactiva
+                # Extraer propiedad_id y ejecutar registrar_lead_ghl
+                prop_id = msg.lista_id.replace("visita_prop_", "")
+                from agent.tools import registrar_lead_ghl, _propiedades_cache
+                # Buscar datos de la propiedad en cache
+                prop_data = next((p for p in _propiedades_cache if str(p.get("propiedad_id", "")) == str(prop_id)), {})
+                # Registrar lead con datos del CRM
+                nombre_lead = datos_crm.get("nombre", "") if datos_crm else ""
+                email_lead = datos_crm.get("email", "") if datos_crm else ""
+                resultado_lead = await registrar_lead_ghl(
+                    telefono=telefono_normalizado,
+                    nombre=nombre_lead,
+                    email=email_lead,
+                    operacion="Comprar",
+                    propiedad_id=prop_id,
+                    propiedad_link=f"{BASE_URL}{prop_data.get('link', '')}" if prop_data.get('link') else "",
+                    propiedad_direccion=prop_data.get("direccion", ""),
+                    resumen=f"Quiere visitar: {prop_data.get('tipo', '')} en {prop_data.get('zona', '')} - {prop_data.get('precio', '')}",
+                )
+                # Extraer booking link del resultado
+                booking_link = ""
+                for linea in resultado_lead.split("\n"):
+                    if "booking" in linea.lower() and "http" in linea:
+                        booking_link = linea.split("http")[-1]
+                        booking_link = "http" + booking_link.strip()
+                        break
+                vendedor = ""
+                for linea in resultado_lead.split("\n"):
+                    if "vendedor asignado:" in linea.lower():
+                        vendedor = linea.split(":")[-1].strip()
+                        break
+                dir_prop = prop_data.get("direccion", "la propiedad seleccionada")
+                precio_prop = prop_data.get("precio", "")
+                texto_resp = f"¡Perfecto! Voy a coordinar la visita al {prop_data.get('tipo', 'propiedad').lower()} en {dir_prop}"
+                if precio_prop:
+                    texto_resp += f" ({precio_prop})"
+                texto_resp += ".\n\n"
+                if booking_link:
+                    texto_resp += f"Acá tenés el link para elegir el día y horario que mejor te venga:\n\n{booking_link}\n\n"
+                if vendedor:
+                    texto_resp += f"{vendedor}, tu asesor de Bertero, te va a confirmar la visita."
+                else:
+                    texto_resp += "Un asesor de Bertero te va a confirmar la visita."
+                texto_resp += "\n\n¿Hay algo más en lo que pueda ayudarte?"
+                respuesta_deterministica = Respuesta(tipo="texto", texto=texto_resp)
+                logger.info(f"Router determinístico: visita_prop_{prop_id} → registrar_lead_ghl + booking link")
+
+            # Si el router manejó el mensaje, enviar respuesta directamente
+            if respuesta_deterministica is not None:
+                respuesta = respuesta_deterministica
+            else:
+                # Flujo normal: pasar por Claude para mensajes ambiguos/texto libre
+                if msg.lista_id:
+                    contexto += f"\n[El cliente seleccionó de una lista interactiva. ID seleccionado: {msg.lista_id}]"
+                elif msg.boton_id:
+                    contexto += f"\n[El cliente hizo clic en un botón. ID del botón: {msg.boton_id}]"
+                contexto += f"\n{msg.texto}"
+                respuesta = await generar_respuesta(
+                    contexto,
+                    historial,
+                    imagen_url=msg.imagen_url,
+                    imagen_mime=msg.imagen_mime,
+                    audio_url=msg.audio_url,
+                    audio_mime=msg.audio_mime,
+                )
 
             # Guardar en memoria — incluir contexto de botón/lista para no perder info
             # Usar telefono_normalizado como clave canónica en DB
